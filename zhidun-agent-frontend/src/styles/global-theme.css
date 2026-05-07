@@ -1,0 +1,290 @@
+/**
+ * 智盾 Agent — 琉璃智蓝 Aurora Indigo
+ * Indigo 主色 / Cyan 辅色 / 玫瑰-琥珀-翡翠 三态色 / 玻璃拟态卡片 / 彩色弥散阴影
+ */
+:root {
+  color-scheme: light;
+
+  /* === 主色与状态色 === */
+  --zd-color-primary: #0369a1;
+  --zd-color-primary-hover: #0ea5e9;
+  --zd-color-primary-deep: #075985;
+  --zd-color-accent: #14b8a6;
+  --zd-color-accent-soft: #5eead4;
+  --zd-color-violet: #8b5cf6;        /* Violet 500，与 Indigo 形成主操作渐变 */
+
+  --zd-color-error: #f43f5e;         /* Rose 500 */
+  --zd-color-error-soft: #ffe4e6;    /* Rose 50 */
+  --zd-color-error-deep: #e11d48;    /* Rose 600 */
+
+  --zd-color-warning: #f59e0b;       /* Amber 500 */
+  --zd-color-warning-soft: #fef3c7;  /* Amber 100 */
+  --zd-color-warning-deep: #b45309;  /* Amber 700 */
+
+  --zd-color-success: #10b981;       /* Emerald 500 */
+  --zd-color-success-soft: #d1fae5;  /* Emerald 100 */
+  --zd-color-success-deep: #047857;  /* Emerald 700 */
+
+  /* === 文字 === */
+  --zd-text-strong: #0f172a;   /* Slate 900 */
+  --zd-text-body: #334155;     /* Slate 700 */
+  --zd-text-muted: #64748b;    /* Slate 500 */
+  --zd-text-faint: #94a3b8;    /* Slate 400 */
+
+  /* === 背景 === */
+  --zd-bg-page: #EBF0F6;       /* 极浅蓝灰：轻量科技风全局底 */
+  --zd-bg-content: #ffffff;
+  --zd-surface: #ffffff;
+  --zd-surface-elevated: #ffffff;
+  --zd-surface-tinted: #F4F7FB;
+
+  --zd-border: rgba(220, 230, 245, 0.9);         /* 极浅蓝灰描边 */
+  --zd-border-strong: rgba(203, 213, 225, 0.95);
+
+  /* === 圆角 === */
+  --zd-radius-xs: 6px;
+  --zd-radius-sm: 8px;
+  --zd-radius-md: 12px;
+  --zd-radius-lg: 16px;
+  --zd-radius-xl: 20px;
+
+  /* === 阴影：偏蓝色弥散 === */
+  --zd-shadow-flat: 0 1px 2px rgba(45, 90, 150, 0.05);
+  --zd-shadow-sm: 0 4px 20px rgba(45, 90, 150, 0.08);
+  --zd-shadow-md: 0 6px 24px rgba(45, 90, 150, 0.10);
+  --zd-shadow-lg: 0 12px 32px rgba(45, 90, 150, 0.14);
+  --zd-shadow-glow-indigo: 0 8px 16px -4px rgba(59, 130, 246, 0.32);
+  --zd-shadow-glow-cyan: 0 8px 16px -4px rgba(6, 182, 212, 0.32);
+  --zd-shadow-glow-rose: 0 8px 16px -4px rgba(244, 63, 94, 0.32);
+
+  /* === 渐变 === */
+  --zd-grad-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --zd-grad-accent: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+  --zd-grad-warm: linear-gradient(135deg, #f43f5e 0%, #f59e0b 100%);
+  --zd-grad-cool: linear-gradient(135deg, #06b6d4 0%, #10b981 100%);
+  --zd-grad-bg: #EBF0F6;
+
+  --zd-color-primary: #0369a1;
+  --zd-color-primary-hover: #0ea5e9;
+  --zd-color-primary-deep: #075985;
+  --zd-color-accent: #14b8a6;
+  --zd-color-accent-soft: #5eead4;
+  --zd-bg-page: #eef5fb;
+  --zd-surface-tinted: #f6f9fc;
+  --zd-shadow-flat: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --zd-shadow-sm: 0 8px 24px rgba(15, 23, 42, 0.06);
+  --zd-shadow-md: 0 14px 34px rgba(15, 23, 42, 0.09);
+  --zd-shadow-lg: 0 22px 56px rgba(15, 23, 42, 0.12);
+  --zd-shadow-glow-indigo: 0 10px 18px -8px rgba(3, 105, 161, 0.38);
+  --zd-shadow-glow-cyan: 0 10px 18px -8px rgba(20, 184, 166, 0.34);
+  --zd-grad-primary: linear-gradient(135deg, #075985 0%, #0284c7 100%);
+  --zd-grad-accent: linear-gradient(135deg, #0369a1 0%, #14b8a6 100%);
+  --zd-grad-cool: linear-gradient(135deg, #0ea5e9 0%, #10b981 100%);
+  --zd-grad-bg:
+    radial-gradient(circle at 12% 8%, rgba(14, 165, 233, 0.12), transparent 28%),
+    linear-gradient(180deg, #f7fbff 0%, #eef5fb 42%, #e8f1f8 100%);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue',
+    'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-feature-settings: 'tnum' 1, 'kern' 1;
+  color: var(--zd-text-body);
+  background-color: var(--zd-bg-page);
+  background-image: var(--zd-grad-bg);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+/* ============ 卡片：纯白 + 蓝色弥散柔和阴影 (Light Tech) ============ */
+.ant-layout .ant-card {
+  border-radius: var(--zd-radius-lg);
+  border: 1px solid var(--zd-border);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--zd-shadow-sm);
+  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
+  position: relative;
+}
+
+.content-inner .ant-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(14, 165, 233, 0.32);
+  box-shadow: var(--zd-shadow-md);
+}
+
+.ant-layout .ant-card .ant-card-head {
+  border-bottom-color: var(--zd-border);
+  min-height: 52px;
+  padding: 0 24px;
+}
+.ant-layout .ant-card .ant-card-body {
+  padding: 20px 24px 24px;
+}
+.ant-layout .ant-card .ant-card-head-title {
+  font-weight: 600;
+  color: var(--zd-text-strong);
+}
+
+/* ============ 主操作按钮：渐变 + 发光 ============ */
+.ant-btn-primary:not(:disabled) {
+  position: relative;
+  overflow: hidden;
+  background: var(--zd-grad-primary);
+  background-size: 180% 100%;
+  background-position: 0% 50%;
+  border: none;
+  font-weight: 500;
+  box-shadow: var(--zd-shadow-glow-indigo);
+  transition: background-position 0.5s ease, box-shadow 0.25s ease, transform 0.18s ease;
+}
+
+.ant-btn-primary:not(:disabled):hover {
+  background-position: 100% 50%;
+  box-shadow: 0 12px 24px -6px rgba(99, 102, 241, 0.55), 0 6px 12px -4px rgba(139, 92, 246, 0.3);
+  transform: translateY(-1px);
+}
+
+.ant-btn-primary:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.42) 50%, transparent 100%);
+  pointer-events: none;
+  transform: skewX(-20deg);
+  transition: left 0.6s ease;
+}
+
+.ant-btn-primary:not(:disabled):hover::after {
+  left: 120%;
+}
+
+/* danger 按钮换玫瑰红发光 */
+.ant-btn-primary.ant-btn-dangerous:not(:disabled) {
+  background: var(--zd-grad-warm);
+  box-shadow: var(--zd-shadow-glow-rose);
+}
+.ant-btn-primary.ant-btn-dangerous:not(:disabled):hover {
+  box-shadow: 0 12px 24px -6px rgba(244, 63, 94, 0.5);
+}
+
+/* ============ 表格 ============ */
+.ant-table-wrapper .ant-table {
+  border-radius: var(--zd-radius-sm);
+  background: transparent;
+}
+.ant-table-wrapper .ant-table-thead > tr > th {
+  background: #f8fbfe !important;
+  font-weight: 700;
+  color: #334155 !important;
+  letter-spacing: 0.01em;
+  border-bottom: 1px solid #F0F0F0 !important;
+}
+.ant-table-wrapper .ant-table-tbody > tr > td {
+  border-bottom-color: #F0F0F0;
+}
+.ant-table-wrapper .ant-table-tbody > tr:hover > td {
+  background: #eff8ff !important;
+}
+
+/* ============ 表单输入聚焦 ============ */
+.ant-input-affix-wrapper:hover,
+.ant-input:hover,
+.ant-select:not(.ant-select-disabled):hover .ant-select-selector {
+  border-color: rgba(99, 102, 241, 0.45) !important;
+}
+.ant-input-affix-wrapper-focused,
+.ant-input:focus,
+.ant-select-focused .ant-select-selector {
+  border-color: var(--zd-color-primary) !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12) !important;
+}
+
+/* ============ Tag：药丸 / 胶囊样式（无边框 + 浅底 + 深字）============ */
+.ant-tag {
+  border-radius: 999px;
+  font-weight: 500;
+  padding: 1px 10px;
+  font-size: 12px;
+  line-height: 20px;
+  letter-spacing: 0.01em;
+  border: none !important;
+}
+.ant-tag-red,
+.ant-tag-error {
+  background: #FFF1F0 !important;
+  color: #F5222D !important;
+}
+.ant-tag-orange,
+.ant-tag-warning,
+.ant-tag-gold {
+  background: #FFF7E6 !important;
+  color: #FA8C16 !important;
+}
+.ant-tag-green,
+.ant-tag-success {
+  background: #F6FFED !important;
+  color: #52C41A !important;
+}
+.ant-tag-blue,
+.ant-tag-processing {
+  background: #E6F4FF !important;
+  color: #1677FF !important;
+}
+.ant-tag-cyan {
+  background: #E0F7FA !important;
+  color: #0891B2 !important;
+}
+.ant-tag-purple {
+  background: #F4F0FF !important;
+  color: #6D28D9 !important;
+}
+.ant-tag-default {
+  background: #F5F5F7 !important;
+  color: #595959 !important;
+}
+
+/* ============ Drawer / Modal 纯白卡 + 蓝色弥散阴影 ============ */
+.ant-drawer-content {
+  background: #ffffff !important;
+}
+.ant-drawer-header {
+  border-bottom-color: var(--zd-border) !important;
+}
+.ant-modal .ant-modal-content {
+  border-radius: var(--zd-radius-lg);
+  background: #ffffff;
+  box-shadow: var(--zd-shadow-lg);
+}
+
+/* ============ Switch / Progress 微调 ============ */
+.ant-switch-checked {
+  background: var(--zd-grad-primary) !important;
+}
+.ant-progress-inner {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+/* ============ 选中文本 ============ */
+::selection {
+  background: rgba(99, 102, 241, 0.22);
+  color: var(--zd-text-strong);
+}

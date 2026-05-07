@@ -417,8 +417,9 @@ function tagColor(t: string) {
 const verdictAlertType = computed(() => {
   const a = lastAssistant.value;
   if (!a) return 'info';
-  if (a.isBlock) return 'error';
-  if (a.isMasked) return 'warning';
+  const score = Math.min(100, Math.max(0, a.riskScoreR ?? 0));
+  if (a.isBlock || score >= 70) return 'error';
+  if (score >= 40) return 'warning';
   return 'success';
 });
 

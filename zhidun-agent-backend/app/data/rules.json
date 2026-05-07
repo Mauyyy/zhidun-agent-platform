@@ -1,0 +1,65 @@
+[
+  {
+    "id": "RULE_PROMPT_INJECTION_001",
+    "name": "提示注入指令",
+    "risk_type": "prompt_injection",
+    "severity": "high",
+    "score": 35,
+    "patterns": [
+      "ignore previous",
+      "ignore all previous",
+      "忽略之前",
+      "无视以上",
+      "越过安全",
+      "bypass",
+      "jailbreak"
+    ]
+  },
+  {
+    "id": "RULE_OVERRIDE_001",
+    "name": "规则覆盖诱导",
+    "risk_type": "rule_override",
+    "severity": "high",
+    "score": 30,
+    "patterns": [
+      "system prompt",
+      "开发者指令",
+      "系统提示词",
+      "新的规则",
+      "覆盖规则",
+      "你现在不需要遵守"
+    ]
+  },
+  {
+    "id": "RULE_PRIVILEGE_ESCALATION_001",
+    "name": "越权访问诱导",
+    "risk_type": "privilege_escalation",
+    "severity": "high",
+    "score": 35,
+    "patterns": [
+      "/admin",
+      "管理员",
+      "root",
+      "sudo",
+      "越权",
+      "read_system_file"
+    ]
+  },
+  {
+    "id": "RULE_SENSITIVE_EXFILTRATION_001",
+    "name": "敏感数据泄露诱导",
+    "risk_type": "sensitive_data_exfiltration",
+    "severity": "high",
+    "score": 40,
+    "patterns": [
+      "db_credentials",
+      "secret",
+      "token",
+      "api key",
+      "apikey",
+      "password",
+      "数据库密码",
+      "密钥"
+    ]
+  }
+]

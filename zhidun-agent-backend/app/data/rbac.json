@@ -1,0 +1,32 @@
+{
+  "roles": {
+    "demo_user": {
+      "allowed_tools": [
+        {
+          "name": "search_public_docs",
+          "resources": [
+            "public_docs"
+          ]
+        },
+        {
+          "name": "read_user_profile",
+          "resources": [
+            "self_profile"
+          ]
+        }
+      ],
+      "denied_tools": [
+        {
+          "name": "read_system_file",
+          "resources": [
+            "/admin",
+            "db_credentials",
+            "secret",
+            "token",
+            "key"
+          ]
+        }
+      ]
+    }
+  }
+}

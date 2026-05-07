@@ -1,0 +1,39 @@
+from fastapi import APIRouter
+
+from app.core.response import fail, success
+from app.schemas.security import EventReportRequest
+from app.services.audit_service import create_event_report, get_event, list_events
+
+router = APIRouter()
+
+
+@router.get("/security/events")
+def get_security_events() -> dict:
+    return success(
+        {
+            "items": list_events(),
+            "total": len(list_events()),
+        }
+    )
+
+
+@router.get("/security/events/{eventId}")
+def get_security_event(eventId: str) -> dict:
+    event = get_event(eventId)
+    if not event:
+        return fail("event not found", code=404, data=None)
+    return success(event)
+
+
+@router.post("/security/events/{eventId}/report")
+def create_security_event_report(eventId: str, payload: EventReportRequest | None = None) -> dict:
+    report = create_event_report(eventId)
+    if not report:
+        return fail("event not found", code=404, data=None)
+
+    if payload:
+        report["operator"] = payload.operator
+        report["remark"] = payload.remark
+
+    return success(report)
+

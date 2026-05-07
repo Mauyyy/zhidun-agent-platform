@@ -12,7 +12,10 @@ FUNCTION_TRIGGER_KEYWORDS = [
 
 
 def simulate_function_call(user_input: str) -> dict[str, Any] | None:
-    if not any(re.search(re.escape(keyword), user_input, flags=re.IGNORECASE) for keyword in FUNCTION_TRIGGER_KEYWORDS):
+    if not any(
+        re.search(re.escape(keyword), user_input, flags=re.IGNORECASE)
+        for keyword in FUNCTION_TRIGGER_KEYWORDS
+    ):
         return None
 
     resource = _detect_resource(user_input)

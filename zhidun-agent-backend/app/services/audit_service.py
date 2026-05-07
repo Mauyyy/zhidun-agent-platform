@@ -80,26 +80,112 @@ def get_event(event_id: str) -> dict[str, Any] | None:
 
 def create_event_report(event_id: str) -> dict[str, Any] | None:
     events = read_json(EVENTS_FILE, [])
+    generated_at = datetime.now(timezone.utc).isoformat()
+
     for event in events:
         if event.get("eventId") == event_id or event.get("event_id") == event_id:
             report = {
                 "eventId": event.get("eventId"),
                 "event_id": event.get("event_id"),
-                "generatedAt": datetime.now(timezone.utc).isoformat(),
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "generatedAt": generated_at,
+                "generated_at": generated_at,
                 "title": "智盾Agent 安全审计报告",
-                "summary": event.get("auditConclusion"),
+                "summary": {
+                    "decision": event.get("decision"),
+                    "riskLevel": event.get("riskLevel"),
+                    "risk_level": event.get("risk_level"),
+                    "riskScore": event.get("riskScore"),
+                    "risk_score_total": event.get("risk_score_total"),
+                    "conclusion": event.get("auditConclusion"),
+                },
                 "decision": event.get("decision"),
                 "riskLevel": event.get("riskLevel"),
                 "risk_level": event.get("risk_level"),
                 "riskScore": event.get("riskScore"),
                 "risk_score_total": event.get("risk_score_total"),
+                "sections": _build_report_sections(event),
                 "recommendation": _build_recommendation(event),
             }
             event["report"] = report
             write_json(EVENTS_FILE, events)
             return report
     return None
+
+
+def _build_report_sections(event: dict[str, Any]) -> list[dict[str, Any]]:
+    risk_components = event.get("riskComponents") or event.get("risk_components") or {}
+    output_diff = event.get("outputDiff") or event.get("output_diff") or {}
+    rbac_result = event.get("rbacResult") or event.get("rbac_result") or {}
+    function_call = event.get("functionCall") or event.get("function_call")
+    rule_hits = event.get("ruleHits") or event.get("rule_hits") or []
+
+    return [
+        {
+            "key": "input_detection",
+            "title": "输入检测",
+            "items": [
+                {"label": "原始输入", "value": event.get("userInput") or event.get("user_input")},
+                {"label": "规则命中数量", "value": len(rule_hits)},
+                {"label": "规则命中详情", "value": rule_hits},
+            ],
+        },
+        {
+            "key": "risk_scoring",
+            "title": "风险评分",
+            "items": [
+                {"label": "综合风险分", "value": event.get("riskScore")},
+                {"label": "风险等级", "value": event.get("riskLevel")},
+                {"label": "风险类型", "value": event.get("riskType")},
+                {"label": "评分分解", "value": risk_components},
+            ],
+        },
+        {
+            "key": "function_call_audit",
+            "title": "Function Calling 执行前审计",
+            "items": [
+                {"label": "工具调用请求", "value": function_call},
+                {
+                    "label": "审计状态",
+                    "value": "已在工具执行前完成审计" if function_call else "未产生工具调用",
+                },
+            ],
+        },
+        {
+            "key": "rbac",
+            "title": "RBAC 越权判断",
+            "items": [
+                {"label": "是否放行", "value": rbac_result.get("allowed")},
+                {"label": "角色", "value": rbac_result.get("role")},
+                {"label": "校验原因", "value": rbac_result.get("reason")},
+                {"label": "匹配策略", "value": rbac_result.get("matchedPolicy")},
+            ],
+        },
+        {
+            "key": "output_protection",
+            "title": "输出防护",
+            "items": [
+                {"label": "脱敏前", "value": output_diff.get("before")},
+                {"label": "脱敏后", "value": output_diff.get("after")},
+                {"label": "是否发生脱敏", "value": output_diff.get("changed")},
+                {"label": "脱敏记录", "value": output_diff.get("redactions", [])},
+            ],
+        },
+        {
+            "key": "audit_conclusion",
+            "title": "审计结论",
+            "items": [
+                {"label": "最终裁决", "value": event.get("decision")},
+                {"label": "审计结论", "value": event.get("auditConclusion")},
+            ],
+        },
+        {
+            "key": "recommendation",
+            "title": "处置建议",
+            "items": [
+                {"label": "建议", "value": _build_recommendation(event)},
+            ],
+        },
+    ]
 
 
 def _build_conclusion(risk: dict[str, Any], decision: str, rbac_result: dict[str, Any]) -> str:

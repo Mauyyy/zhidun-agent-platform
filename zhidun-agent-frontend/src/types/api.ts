@@ -161,13 +161,62 @@ export interface BackendReportData {
   generatedAt?: string;
   generated_at?: string;
   title?: string;
-  summary?: string;
+  summary?: string | Record<string, unknown>;
   decision?: string;
   riskLevel?: string;
   risk_level?: string;
   riskScore?: number;
   risk_score_total?: number;
+  sections?: ReportSection[];
   recommendation?: string;
+}
+
+export interface BackendRuleListData {
+  items?: BackendSecurityRule[];
+  total?: number;
+}
+
+export interface BackendSecurityRule {
+  id: string;
+  name: string;
+  risk_type?: string;
+  severity?: string;
+  score?: number;
+  patterns?: string[];
+}
+
+export interface BackendRbacPolicyData {
+  roles?: Record<string, BackendRbacRolePolicy>;
+  summary?: {
+    roleCount?: number;
+    allowedPolicyCount?: number;
+    deniedPolicyCount?: number;
+  };
+}
+
+export interface BackendRbacRolePolicy {
+  allowed_tools?: BackendRbacToolPolicy[];
+  denied_tools?: BackendRbacToolPolicy[];
+}
+
+export interface BackendRbacToolPolicy {
+  name?: string;
+  resources?: string[];
+}
+
+export interface BackendTestCaseListData {
+  items?: SecurityTestCase[];
+  total?: number;
+}
+
+export interface SecurityTestCase {
+  id: string;
+  title: string;
+  category: string;
+  content: string;
+  expectedDecision: string;
+  expectedRiskLevel: string;
+  description?: string;
 }
 
 export type SensitivityLevel = 'L1' | 'L2' | 'L3' | 'L4';
@@ -248,6 +297,21 @@ export interface ReportJobResponse {
   jobId: string;
   status: 'pending' | 'done' | 'failed';
   downloadUrl?: string;
+  eventId?: string;
+  title?: string;
+  generatedAt?: string;
+  summary?: string | Record<string, unknown>;
+  sections?: ReportSection[];
+  recommendation?: string;
+}
+
+export interface ReportSection {
+  key: string;
+  title: string;
+  items?: Array<{
+    label: string;
+    value: unknown;
+  }>;
 }
 
 /**

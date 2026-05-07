@@ -11,10 +11,14 @@ import type {
   BackendOutputDiff,
   BackendReportData,
   BackendRbacResult,
+  BackendRbacPolicyData,
   BackendRiskComponents,
+  BackendRuleListData,
   BackendRuleHit,
   BackendSecurityEvent,
   BackendSecurityEventListData,
+  BackendSecurityRule,
+  BackendTestCaseListData,
   ChatMessageResponse,
   DashboardOverview,
   DashboardRealtimeSnapshot,
@@ -31,6 +35,7 @@ import type {
   SecurityEventListItem,
   SecurityRealtimeEvent,
   SecurityEventQuery,
+  SecurityTestCase,
   SensitiveAsset,
   ToolInvocationRecord,
   ToolPolicy,
@@ -57,6 +62,48 @@ function pickText(...values: unknown[]): string | undefined {
 function normalizeDecision(action?: string, decision?: string): 'block' | 'allow' {
   const value = `${action ?? ''} ${decision ?? ''}`.toLowerCase();
   return value.includes('block') ? 'block' : 'allow';
+}
+
+function displayRiskLevel(level?: string): string {
+  const value = (level ?? '').toLowerCase();
+  if (value === 'high' || value === 'critical') return '高危';
+  if (value === 'medium' || value === 'mid') return '中危';
+  if (value === 'low' || value === 'normal' || value === 'safe') return '低危';
+  return level || '低危';
+}
+
+function displayRiskType(type?: string): string {
+  const value = (type ?? '').toLowerCase();
+  if (value === 'prompt_injection') return '提示注入';
+  if (value === 'rule_override') return '规则覆盖';
+  if (value === 'privilege_escalation') return '工具越权';
+  if (value === 'sensitive_data_exfiltration') return '敏感泄露';
+  if (value === 'normal') return '正常请求';
+  return type || '未知';
+}
+
+function displayDecision(value?: string): string {
+  const text = (value ?? '').toLowerCase();
+  if (text.includes('block')) return '拦截';
+  if (text.includes('allow') || text.includes('pass')) return '放行';
+  return value || '未知';
+}
+
+function ruleCategory(riskType?: string): InjectionRule['category'] {
+  const value = (riskType ?? '').toLowerCase();
+  if (value === 'privilege_escalation') return '越权诱导';
+  if (value === 'sensitive_data_exfiltration') return '敏感诱导';
+  if (value === 'rule_override') return '系统提示泄露';
+  return '提示注入';
+}
+
+function sensitivityLevelFromResources(resources: string[] = []): ToolPolicy['level'] {
+  const joined = resources.join(' ').toLowerCase();
+  if (joined.includes('/admin') || joined.includes('db_credentials') || joined.includes('secret')) {
+    return 'L4';
+  }
+  if (joined.includes('token') || joined.includes('key')) return 'L3';
+  return 'L2';
 }
 
 function getRuleHits(data: BackendChatMessageData | BackendSecurityEvent): BackendRuleHit[] {
@@ -143,9 +190,9 @@ function mapBackendEventList(
     items: items.map((item) => ({
       id: pickText(item.eventId, item.event_id) ?? '',
       time: pickText(item.timestamp) ?? '',
-      type: pickText(item.riskType, item.risk_type) ?? 'unknown',
-      level: pickText(item.riskLevel, item.risk_level) ?? 'low',
-      result: pickText(item.decision, item.action) ?? 'UNKNOWN',
+      type: displayRiskType(pickText(item.riskType, item.risk_type)),
+      level: displayRiskLevel(pickText(item.riskLevel, item.risk_level)),
+      result: displayDecision(pickText(item.decision, item.action)),
     })),
     total: data.total ?? items.length,
     page: data.page ?? page,
@@ -190,10 +237,73 @@ function mapBackendAuditDetail(data: BackendSecurityEvent): AuditEventDetail {
 }
 
 function mapBackendReport(data: BackendReportData, eventId: string): ReportJobResponse {
+  const resolvedEventId = pickText(data.event_id, data.eventId, eventId) ?? eventId;
   return {
-    jobId: `report-${pickText(data.event_id, data.eventId, eventId) ?? eventId}`,
+    jobId: `report-${resolvedEventId}`,
     status: 'done',
+    eventId: resolvedEventId,
+    title: data.title,
+    generatedAt: pickText(data.generated_at, data.generatedAt),
+    summary: data.summary,
+    sections: data.sections,
+    recommendation: data.recommendation,
   };
+}
+
+function mapBackendRule(rule: BackendSecurityRule): InjectionRule {
+  const patterns = rule.patterns ?? [];
+  const riskType = rule.risk_type ?? '';
+  return {
+    id: rule.id,
+    name: rule.name,
+    type: patterns.length > 1 ? 'keyword' : 'regex',
+    pattern: patterns.join(' | '),
+    category: ruleCategory(riskType),
+    weight: Math.min(1, Math.max(0, (rule.score ?? 0) / 100)),
+    enabled: true,
+    hits7d: 0,
+    description: `${displayRiskType(riskType)} · ${rule.severity ?? 'unknown'}`,
+  };
+}
+
+function mapBackendRbacPolicy(data: BackendRbacPolicyData): ToolPolicy[] {
+  const roles = data.roles ?? {};
+  const rows: ToolPolicy[] = [];
+
+  Object.entries(roles).forEach(([role, policy]) => {
+    const allowedTools = policy.allowed_tools ?? [];
+    const deniedTools = policy.denied_tools ?? [];
+
+    allowedTools.forEach((tool, index) => {
+      const resources = tool.resources ?? [];
+      rows.push({
+        id: `${role}-allow-${tool.name ?? index}`,
+        name: tool.name ?? 'unknown_tool',
+        desc: 'RBAC 白名单工具',
+        constraints: resources.length ? `允许资源：${resources.join(', ')}` : '允许资源：未指定',
+        level: sensitivityLevelFromResources(resources),
+        rbac: [role],
+        active: true,
+        blockCount: 0,
+      });
+    });
+
+    deniedTools.forEach((tool, index) => {
+      const resources = tool.resources ?? [];
+      rows.push({
+        id: `${role}-deny-${tool.name ?? index}`,
+        name: tool.name ?? 'unknown_tool',
+        desc: 'RBAC 拒绝策略工具',
+        constraints: resources.length ? `拒绝资源：${resources.join(', ')}` : '拒绝资源：未指定',
+        level: sensitivityLevelFromResources(resources),
+        rbac: [role],
+        active: true,
+        blockCount: 0,
+      });
+    });
+  });
+
+  return rows;
 }
 
 /** 风险总览 + 趋势序列 */
@@ -227,23 +337,21 @@ export async function sendChatMessage(
 
 export async function listToolPolicies(): Promise<ToolPolicy[]> {
   if (USE_MOCK) return mock.mockListToolPolicies();
-  return request<ToolPolicy[]>('/tools/policies');
+  const data = await request<BackendRbacPolicyData>('/security/rbac');
+  return mapBackendRbacPolicy(data);
 }
 
 export async function createToolPolicy(body: ToolPolicyCreate): Promise<ToolPolicy> {
   if (USE_MOCK) return mock.mockCreateToolPolicy(body);
-  return request<ToolPolicy>('/tools/policies', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
+  void body;
+  throw new Error('当前阶段 RBAC 策略为只读模式');
 }
 
 export async function updateToolPolicy(id: string, body: ToolPolicyUpdate): Promise<ToolPolicy> {
   if (USE_MOCK) return mock.mockUpdateToolPolicy(id, body);
-  return request<ToolPolicy>(`/tools/policies/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(body),
-  });
+  void id;
+  void body;
+  throw new Error('当前阶段 RBAC 策略为只读模式');
 }
 
 export async function listSecurityEvents(
@@ -278,6 +386,12 @@ export async function requestAuditReport(eventId: string): Promise<ReportJobResp
     body: '{}',
   });
   return mapBackendReport(data, eventId);
+}
+
+export async function listSecurityTestCases(): Promise<SecurityTestCase[]> {
+  if (USE_MOCK) return [];
+  const data = await request<BackendTestCaseListData>('/security/test-cases');
+  return data.items ?? [];
 }
 
 /**
@@ -528,20 +642,20 @@ export async function getToolInvocation(id: string): Promise<ToolInvocationRecor
 
 export async function listInjectionRules(): Promise<InjectionRule[]> {
   if (USE_MOCK) return mock.mockListInjectionRules();
-  return request<InjectionRule[]>('/policy/injection-rules');
+  const data = await request<BackendRuleListData>('/security/rules');
+  return (data.items ?? []).map(mapBackendRule);
 }
 
 export async function saveInjectionRule(row: InjectionRule): Promise<InjectionRule> {
   if (USE_MOCK) return mock.mockSaveInjectionRule(row);
-  return request<InjectionRule>('/policy/injection-rules', {
-    method: 'POST',
-    body: JSON.stringify(row),
-  });
+  void row;
+  throw new Error('当前阶段规则库为只读模式');
 }
 
 export async function deleteInjectionRule(id: string): Promise<void> {
   if (USE_MOCK) return mock.mockDeleteInjectionRule(id);
-  await request<void>(`/policy/injection-rules/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  void id;
+  throw new Error('当前阶段规则库为只读模式');
 }
 
 export async function listMaskTemplates(): Promise<MaskTemplate[]> {

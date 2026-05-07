@@ -58,4 +58,3 @@ def _resource_sensitivity_score(user_input: str) -> int:
         if re.search(re.escape(resource), user_input, flags=re.IGNORECASE):
             hit_count += 1
     return min(hit_count * 8, 20)
-

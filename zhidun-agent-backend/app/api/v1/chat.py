@@ -42,6 +42,7 @@ def create_chat_message(payload: ChatMessageRequest) -> dict:
             decision=decision,
         )
 
+    conclusion = event["auditConclusion"] if event else "请求已通过最小安全闭环检测。"
     return success(
         {
             "sessionId": payload.session_id,
@@ -65,8 +66,7 @@ def create_chat_message(payload: ChatMessageRequest) -> dict:
             "output_diff": output_diff,
             "eventId": event["eventId"] if event else None,
             "event_id": event["event_id"] if event else None,
-            "auditConclusion": event["auditConclusion"] if event else "请求已通过最小安全闭环检测。",
-            "audit_conclusion": event["audit_conclusion"] if event else "请求已通过最小安全闭环检测。",
+            "auditConclusion": conclusion,
+            "audit_conclusion": conclusion,
         }
     )
-

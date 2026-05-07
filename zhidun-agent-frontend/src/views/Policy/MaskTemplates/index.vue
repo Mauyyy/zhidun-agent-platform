@@ -85,11 +85,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { EyeInvisibleOutlined, PlusOutlined } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
 import {
   listMaskTemplates,
+  previewDesensitization,
   saveMaskTemplate,
   deleteMaskTemplate,
 } from '@/api/services';
@@ -98,6 +99,9 @@ import type { MaskStrategy, MaskTemplate } from '@/types/api';
 const loading = ref(false);
 const rows = ref<MaskTemplate[]>([]);
 const sample = ref('经理张三的手机号 13812345678，邮箱 admin@zhidun.com，系统密钥 SK-9821ABCDEF。');
+const previewMasked = ref(sample.value);
+const previewHits = ref<Array<{ id: string; name: string; count: number }>>([]);
+let previewTimer: number | null = null;
 
 const columns = [
   { title: '名称', dataIndex: 'name', width: 140 },
@@ -181,40 +185,37 @@ async function onDelete(id: string) {
   rows.value = rows.value.filter((r) => r.id !== id);
 }
 
-/** 实时预览：把启用的模板按 pattern 在 sample 上替换 */
-const previewResult = computed(() => {
-  let text = sample.value;
-  const localHits: Array<{ id: string; name: string; count: number }> = [];
-  for (const t of rows.value) {
-    if (!t.enabled || !t.pattern) continue;
-    try {
-      const re = new RegExp(t.pattern, 'g');
-      let count = 0;
-      text = text.replace(re, (m) => {
-        count += 1;
-        if (t.strategy === 'reject') return '[已拦截]';
-        if (t.strategy === 'hash') return `#${m.length}`;
-        if (t.strategy === 'truncate') return t.replacement || `${m.slice(0, 3)}***`;
-        return doMask(m);
-      });
-      if (count > 0) localHits.push({ id: t.id, name: t.name, count });
-    } catch {
-      // 忽略非法正则
-    }
-  }
-  return { text, hits: localHits };
-});
-const masked = computed(() => previewResult.value.text);
-const hits = computed(() => previewResult.value.hits);
+const masked = computed(() => previewMasked.value);
+const hits = computed(() => previewHits.value);
 
-function doMask(m: string) {
-  if (m.length <= 4) return '****';
-  const head = m.slice(0, 3);
-  const tail = m.slice(-4);
-  return `${head}${'*'.repeat(Math.max(2, m.length - 7))}${tail}`;
+async function runPreview() {
+  try {
+    const result = await previewDesensitization(sample.value);
+    previewMasked.value = result.masked || result.after || sample.value;
+    const counters = new Map<string, number>();
+    for (const item of result.redactions ?? []) {
+      counters.set(item.type, (counters.get(item.type) ?? 0) + 1);
+    }
+    previewHits.value = Array.from(counters.entries()).map(([name, count]) => ({
+      id: name,
+      name,
+      count,
+    }));
+  } catch {
+    previewMasked.value = sample.value;
+    previewHits.value = [];
+  }
 }
 
-onMounted(load);
+watch(sample, () => {
+  if (previewTimer != null) window.clearTimeout(previewTimer);
+  previewTimer = window.setTimeout(runPreview, 250);
+});
+
+onMounted(async () => {
+  await load();
+  await runPreview();
+});
 </script>
 
 <style scoped>

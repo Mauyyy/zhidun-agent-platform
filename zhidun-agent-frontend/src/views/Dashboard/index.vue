@@ -210,7 +210,7 @@ const loading = computed(() => coreLoading.value);
 const stats = computed(() => overview.value?.stats ?? null);
 const recentRows = computed(() => events.value.slice(0, 14));
 const trendOption = computed(() => buildTrendOption(overview.value));
-const donutOption = computed(() => buildDonutOption());
+const donutOption = computed(() => buildDonutOption(overview.value));
 
 const recentColumns = [
   { title: '时间', dataIndex: 'time', key: 'time', width: 170 },
@@ -220,7 +220,27 @@ const recentColumns = [
   { title: '操作', key: 'action', width: 72 },
 ];
 
-function buildDonutOption() {
+function buildDonutOption(data: DashboardOverview | null) {
+  const distribution = data?.riskTypeDistribution ?? data?.risk_type_distribution ?? [];
+  const colors: Record<string, string> = {
+    prompt_injection: '#0284C7',
+    rule_override: '#6366F1',
+    privilege_escalation: '#E11D48',
+    sensitive_data_exfiltration: '#F59E0B',
+    normal: '#10B981',
+    unknown: '#94A3B8',
+  };
+  const seriesData = distribution
+    .filter((item) => item.count > 0)
+    .map((item) => ({
+      value: item.count,
+      name: item.label,
+      itemStyle: { color: colors[item.type] ?? colors.unknown },
+    }));
+  const pieData = seriesData.length
+    ? seriesData
+    : [{ value: 1, name: '暂无事件', itemStyle: { color: '#CBD5E1' } }];
+
   return {
     tooltip: {
       trigger: 'item',
@@ -270,12 +290,7 @@ function buildDonutOption() {
           label: { fontWeight: 700, color: '#0F172A' },
           itemStyle: { shadowBlur: 18, shadowColor: 'rgba(59, 130, 246, 0.35)' },
         },
-        data: [
-          { value: 38, name: '提示注入', itemStyle: { color: '#0284C7' } },
-          { value: 28, name: '工具越权', itemStyle: { color: '#E11D48' } },
-          { value: 18, name: '敏感泄露', itemStyle: { color: '#F59E0B' } },
-          { value: 16, name: '其他', itemStyle: { color: '#10B981' } },
-        ],
+        data: pieData,
       },
     ],
   };

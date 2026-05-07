@@ -89,6 +89,24 @@
           </a-timeline-item>
         </a-timeline>
 
+        <a-collapse v-if="reportSections.length" size="small" class="report-sections">
+          <a-collapse-panel
+            v-for="section in reportSections"
+            :key="section.key"
+            :header="section.title"
+          >
+            <a-descriptions size="small" :column="1" bordered>
+              <a-descriptions-item
+                v-for="item in section.items || []"
+                :key="item.label"
+                :label="item.label"
+              >
+                <span class="report-value">{{ formatReportValue(item.value) }}</span>
+              </a-descriptions-item>
+            </a-descriptions>
+          </a-collapse-panel>
+        </a-collapse>
+
         <div class="actions">
           <a-button type="primary" :loading="exporting" @click="exportReport">
             <download-outlined /> 导出审计报告
@@ -112,7 +130,7 @@ import { DownloadOutlined, ExpandOutlined } from '@ant-design/icons-vue';
 import { message } from 'ant-design-vue';
 import { useAuditSessionStore } from '@/stores/auditSession';
 import { getAuditEventDetail, requestAuditReport } from '@/api/services';
-import type { AuditEventDetail } from '@/types/api';
+import type { AuditEventDetail, ReportSection } from '@/types/api';
 import RiskTag from '@/components/common/RiskTag.vue';
 
 const sessionStore = useAuditSessionStore();
@@ -127,6 +145,7 @@ const open = computed<boolean>({
 });
 
 const detail = ref<AuditEventDetail | null>(null);
+const reportSections = ref<ReportSection[]>([]);
 const loading = ref(false);
 const exporting = ref(false);
 
@@ -149,6 +168,7 @@ async function load(id: string | null) {
   loading.value = true;
   try {
     detail.value = await getAuditEventDetail(id);
+    reportSections.value = [];
   } catch {
     detail.value = null;
     message.error('事件加载失败');
@@ -176,6 +196,7 @@ async function exportReport() {
   exporting.value = true;
   try {
     const job = await requestAuditReport(detail.value.event_id);
+    reportSections.value = job.sections ?? [];
     if (job.downloadUrl) {
       const url = job.downloadUrl.startsWith('http')
         ? job.downloadUrl
@@ -188,6 +209,13 @@ async function exportReport() {
   } finally {
     exporting.value = false;
   }
+}
+
+function formatReportValue(value: unknown) {
+  if (value == null || value === '') return '—';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return JSON.stringify(value, null, 2);
 }
 </script>
 
@@ -250,5 +278,14 @@ async function exportReport() {
   display: flex;
   gap: 8px;
   margin-top: 16px;
+}
+.report-sections {
+  margin-top: 12px;
+}
+.report-value {
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: 'SFMono-Regular', Consolas, Menlo, monospace;
+  font-size: 12px;
 }
 </style>

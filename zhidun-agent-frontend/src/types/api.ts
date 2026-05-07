@@ -28,9 +28,17 @@ export interface DashboardTrend {
   dataLeak: number[];
 }
 
+export interface RiskTypeDistributionItem {
+  type: string;
+  label: string;
+  count: number;
+}
+
 export interface DashboardOverview {
   stats: DashboardStats;
   trend: DashboardTrend;
+  riskTypeDistribution?: RiskTypeDistributionItem[];
+  risk_type_distribution?: RiskTypeDistributionItem[];
 }
 
 export interface RiskMatrixSummary {
@@ -217,6 +225,20 @@ export interface SecurityTestCase {
   expectedDecision: string;
   expectedRiskLevel: string;
   description?: string;
+}
+
+export interface DesensitizeRedaction {
+  type: string;
+  value: string;
+}
+
+export interface DesensitizePreviewResponse {
+  original: string;
+  masked: string;
+  before?: string;
+  after?: string;
+  changed: boolean;
+  redactions: DesensitizeRedaction[];
 }
 
 export type SensitivityLevel = 'L1' | 'L2' | 'L3' | 'L4';
@@ -441,20 +463,40 @@ export interface TopologyGraph {
 export interface ToolInvocationRecord {
   id: string;
   time: string;
+  timestamp?: string;
   agent: string;
   toolName: string;
+  tool_name?: string;
   /** 简化的参数摘要 */
   argsBrief: string;
+  args_brief?: string;
   arguments: Record<string, unknown>;
   callerRole: string;
+  caller_role?: string;
   requiredLevel: SensitivityLevel;
+  required_level?: SensitivityLevel;
   passed: boolean;
   /** 是否越权 */
   rbacBreach: boolean;
+  rbac_breach?: boolean;
   /** 关联事件 ID（若被阻断） */
   eventId?: string;
+  event_id?: string;
+  decision?: string;
+  riskScore?: number;
+  risk_score?: number;
+  riskLevel?: string;
+  risk_level?: string;
+  rbacResult?: BackendRbacResult;
+  rbac_result?: BackendRbacResult;
+  outputDiff?: BackendOutputDiff;
+  output_diff?: BackendOutputDiff;
+  auditConclusion?: string;
+  audit_conclusion?: string;
+  status?: string;
   /** 调用链上下文（用于调用链图谱） */
   contextChain?: Array<{ turn: number; speaker: 'user' | 'agent'; text: string }>;
+  context_chain?: Array<{ turn: number; speaker: 'user' | 'agent'; text: string }>;
 }
 
 /** ========= 注入检测规则库 ========= */

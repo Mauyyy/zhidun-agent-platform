@@ -22,6 +22,7 @@ import type {
   ChatMessageResponse,
   DashboardOverview,
   DashboardRealtimeSnapshot,
+  DesensitizePreviewResponse,
   InjectionRule,
   InputRiskEvaluateRequest,
   InputRiskEvaluateResponse,
@@ -304,6 +305,29 @@ function mapBackendRbacPolicy(data: BackendRbacPolicyData): ToolPolicy[] {
   });
 
   return rows;
+}
+
+function normalizeToolInvocation(row: ToolInvocationRecord): ToolInvocationRecord {
+  const eventId = pickText(row.eventId, row.event_id);
+  const toolName = pickText(row.toolName, row.tool_name) ?? 'unknown_tool';
+  const callerRole = pickText(row.callerRole, row.caller_role) ?? 'demo_user';
+  const requiredLevel = (pickText(row.requiredLevel, row.required_level) ?? 'L2') as ToolPolicy['level'];
+  const passed = Boolean(row.passed);
+  return {
+    ...row,
+    id: row.id,
+    time: pickText(row.time, row.timestamp) ?? '',
+    agent: pickText(row.agent) ?? '智盾Agent',
+    toolName,
+    argsBrief: pickText(row.argsBrief, row.args_brief) ?? '',
+    arguments: row.arguments ?? {},
+    callerRole,
+    requiredLevel,
+    passed,
+    rbacBreach: typeof row.rbacBreach === 'boolean' ? row.rbacBreach : Boolean(row.rbac_breach),
+    eventId,
+    contextChain: row.contextChain ?? row.context_chain ?? [],
+  };
 }
 
 /** 风险总览 + 趋势序列 */
@@ -630,14 +654,19 @@ export async function listToolInvocations(
   pageSize = 10
 ): Promise<Paginated<ToolInvocationRecord>> {
   if (USE_MOCK) return mock.mockListToolInvocations(page, pageSize);
-  return request<Paginated<ToolInvocationRecord>>(
+  const data = await request<Paginated<ToolInvocationRecord>>(
     `/security/tool-invocations?page=${page}&pageSize=${pageSize}`
   );
+  return {
+    ...data,
+    items: (data.items ?? []).map(normalizeToolInvocation),
+  };
 }
 
 export async function getToolInvocation(id: string): Promise<ToolInvocationRecord | null> {
   if (USE_MOCK) return mock.mockGetToolInvocation(id);
-  return request<ToolInvocationRecord>(`/security/tool-invocations/${encodeURIComponent(id)}`);
+  const data = await request<ToolInvocationRecord>(`/security/tool-invocations/${encodeURIComponent(id)}`);
+  return normalizeToolInvocation(data);
 }
 
 export async function listInjectionRules(): Promise<InjectionRule[]> {
@@ -660,20 +689,51 @@ export async function deleteInjectionRule(id: string): Promise<void> {
 
 export async function listMaskTemplates(): Promise<MaskTemplate[]> {
   if (USE_MOCK) return mock.mockListMaskTemplates();
-  return request<MaskTemplate[]>('/policy/mask-templates');
+  return mock.mockListMaskTemplates();
 }
 
 export async function saveMaskTemplate(row: MaskTemplate): Promise<MaskTemplate> {
   if (USE_MOCK) return mock.mockSaveMaskTemplate(row);
-  return request<MaskTemplate>('/policy/mask-templates', {
-    method: 'POST',
-    body: JSON.stringify(row),
-  });
+  void row;
+  throw new Error('当前阶段脱敏模板为只读模式');
 }
 
 export async function deleteMaskTemplate(id: string): Promise<void> {
   if (USE_MOCK) return mock.mockDeleteMaskTemplate(id);
-  await request<void>(`/policy/mask-templates/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  void id;
+  throw new Error('当前阶段脱敏模板为只读模式');
+}
+
+export async function previewDesensitization(content: string): Promise<DesensitizePreviewResponse> {
+  if (USE_MOCK) {
+    const local = await mock.mockListMaskTemplates();
+    let masked = content;
+    const redactions: DesensitizePreviewResponse['redactions'] = [];
+    for (const template of local) {
+      if (!template.enabled || !template.pattern) continue;
+      try {
+        const re = new RegExp(template.pattern, 'g');
+        masked = masked.replace(re, (value) => {
+          redactions.push({ type: template.category, value });
+          return value.length <= 4 ? '****' : `${value.slice(0, 3)}****${value.slice(-4)}`;
+        });
+      } catch {
+        // ignore invalid mock regex
+      }
+    }
+    return {
+      original: content,
+      masked,
+      before: content,
+      after: masked,
+      changed: masked !== content,
+      redactions,
+    };
+  }
+  return request<DesensitizePreviewResponse>('/security/desensitize-preview', {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  });
 }
 
 export async function listAgentApps(): Promise<AgentApp[]> {

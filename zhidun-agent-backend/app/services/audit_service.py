@@ -78,6 +78,35 @@ def get_event(event_id: str) -> dict[str, Any] | None:
     )
 
 
+def list_tool_invocations(page: int = 1, page_size: int = 12) -> dict[str, Any]:
+    invocations = [
+        invocation
+        for event in list_events()
+        if (invocation := _event_to_tool_invocation(event)) is not None
+    ]
+    safe_page = max(page, 1)
+    safe_page_size = max(page_size, 1)
+    start = (safe_page - 1) * safe_page_size
+    end = start + safe_page_size
+
+    return {
+        "items": invocations[start:end],
+        "total": len(invocations),
+        "page": safe_page,
+        "pageSize": safe_page_size,
+    }
+
+
+def get_tool_invocation(invocation_id: str) -> dict[str, Any] | None:
+    for event in list_events():
+        invocation = _event_to_tool_invocation(event)
+        if not invocation:
+            continue
+        if invocation.get("id") == invocation_id:
+            return invocation
+    return None
+
+
 def create_event_report(event_id: str) -> dict[str, Any] | None:
     events = read_json(EVENTS_FILE, [])
     generated_at = datetime.now(timezone.utc).isoformat()
@@ -110,6 +139,95 @@ def create_event_report(event_id: str) -> dict[str, Any] | None:
             write_json(EVENTS_FILE, events)
             return report
     return None
+
+
+def _event_to_tool_invocation(event: dict[str, Any]) -> dict[str, Any] | None:
+    function_call = event.get("functionCall") or event.get("function_call")
+    if not function_call:
+        return None
+
+    rbac_result = event.get("rbacResult") or event.get("rbac_result") or {}
+    output_diff = event.get("outputDiff") or event.get("output_diff") or {}
+    event_id = event.get("eventId") or event.get("event_id") or "unknown"
+    tool_name = function_call.get("name") or "unknown_tool"
+    arguments = function_call.get("arguments") or {}
+    resource = function_call.get("resource") or arguments.get("path") or arguments.get("file_path")
+    allowed = bool(rbac_result.get("allowed", False))
+    decision = event.get("decision") or ("ALLOWED" if allowed else "BLOCKED")
+
+    return {
+        "id": f"inv_{event_id}",
+        "eventId": event_id,
+        "event_id": event_id,
+        "timestamp": event.get("timestamp"),
+        "time": event.get("timestamp"),
+        "agent": "智盾Agent",
+        "toolName": tool_name,
+        "tool_name": tool_name,
+        "arguments": arguments,
+        "argsBrief": _build_args_brief(arguments, resource),
+        "args_brief": _build_args_brief(arguments, resource),
+        "callerRole": rbac_result.get("role") or rbac_result.get("matched_role") or "demo_user",
+        "caller_role": rbac_result.get("role") or rbac_result.get("matched_role") or "demo_user",
+        "requiredLevel": _required_level(resource, event),
+        "required_level": _required_level(resource, event),
+        "passed": allowed,
+        "rbacBreach": not allowed,
+        "rbac_breach": not allowed,
+        "decision": decision,
+        "riskScore": event.get("riskScore") or event.get("risk_score_total") or 0,
+        "risk_score": event.get("riskScore") or event.get("risk_score_total") or 0,
+        "riskLevel": event.get("riskLevel") or event.get("risk_level") or "low",
+        "risk_level": event.get("riskLevel") or event.get("risk_level") or "low",
+        "rbacResult": rbac_result,
+        "rbac_result": rbac_result,
+        "status": "allowed" if allowed else "blocked",
+        "outputDiff": output_diff,
+        "output_diff": output_diff,
+        "auditConclusion": event.get("auditConclusion") or event.get("audit_conclusion"),
+        "audit_conclusion": event.get("auditConclusion") or event.get("audit_conclusion"),
+        "contextChain": [
+            {
+                "turn": 1,
+                "speaker": "user",
+                "text": event.get("userInput") or event.get("user_input") or "",
+            },
+            {
+                "turn": 2,
+                "speaker": "agent",
+                "text": "工具调用已放行" if allowed else "工具调用已在执行前阻断",
+            },
+        ],
+        "context_chain": [
+            {
+                "turn": 1,
+                "speaker": "user",
+                "text": event.get("userInput") or event.get("user_input") or "",
+            },
+            {
+                "turn": 2,
+                "speaker": "agent",
+                "text": "工具调用已放行" if allowed else "工具调用已在执行前阻断",
+            },
+        ],
+    }
+
+
+def _build_args_brief(arguments: dict[str, Any], resource: Any) -> str:
+    if resource:
+        return f"path={resource}"
+    if not arguments:
+        return "无参数"
+    return ", ".join(f"{key}={value}" for key, value in list(arguments.items())[:3])
+
+
+def _required_level(resource: Any, event: dict[str, Any]) -> str:
+    text = f"{resource or ''} {event.get('riskType') or event.get('risk_type') or ''}".lower()
+    if any(keyword in text for keyword in ["/admin", "db_credentials", "secret"]):
+        return "L4"
+    if any(keyword in text for keyword in ["token", "key", "password"]):
+        return "L3"
+    return "L2"
 
 
 def _build_report_sections(event: dict[str, Any]) -> list[dict[str, Any]]:

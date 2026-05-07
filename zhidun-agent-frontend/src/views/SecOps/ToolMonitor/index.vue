@@ -57,28 +57,41 @@
         @change="onTableChange"
       >
         <template #bodyCell="{ column, record }">
-          <template v-if="column.dataIndex === 'toolName'">
+          <template v-if="column.dataIndex === 'time'">
+            <span class="time-text">{{ formatTime(record.time) }}</span>
+          </template>
+          <template v-else-if="column.dataIndex === 'toolName'">
             <span class="mono">{{ record.toolName }}</span>
           </template>
           <template v-else-if="column.dataIndex === 'callerRole'">
-            <a-tag>{{ record.callerRole }}</a-tag>
-            <span class="vs">→</span>
-            <a-tag :color="record.requiredLevel === 'L4' ? 'red' : record.requiredLevel === 'L3' ? 'orange' : 'blue'">
-              {{ record.requiredLevel }}
-            </a-tag>
+            <div class="role-level">
+              <span class="role-text">{{ record.callerRole }}</span>
+              <span class="slash">/</span>
+              <a-tag
+                class="level-tag"
+                :color="record.requiredLevel === 'L4' ? 'red' : record.requiredLevel === 'L3' ? 'orange' : 'blue'"
+              >
+                {{ record.requiredLevel }}
+              </a-tag>
+            </div>
           </template>
           <template v-else-if="column.dataIndex === 'passed'">
             <a-tag :color="record.passed ? 'green' : 'red'">
-              {{ record.passed ? '通过' : record.rbacBreach ? 'RBAC 越权' : '阻断' }}
+              {{ record.passed ? 'ALLOW' : record.rbacBreach ? 'RBAC DENY' : 'BLOCKED' }}
             </a-tag>
           </template>
           <template v-else-if="column.dataIndex === 'op'">
-            <a-button type="link" size="small" @click="openDetail(record)">
-              深度解析 <right-outlined />
-            </a-button>
-            <a-button v-if="record.eventId" type="link" size="small" @click="openEvidence(record.eventId!)">
+            <a-space :size="4" class="op-actions">
+              <a-tag :color="record.passed ? 'green' : 'red'" class="status-mini">
+                {{ record.rbacBreach ? 'RBAC DENY' : record.passed ? 'ALLOW' : 'BLOCKED' }}
+              </a-tag>
+              <a-button type="link" size="small" class="op-link" @click="openDetail(record)">
+                解析 <right-outlined />
+              </a-button>
+              <a-button v-if="record.eventId" type="link" size="small" class="op-link" @click="openEvidence(record.eventId!)">
               证据链
-            </a-button>
+              </a-button>
+            </a-space>
           </template>
         </template>
       </a-table>
@@ -94,7 +107,7 @@
       <template v-if="active">
         <a-descriptions size="small" :column="2" bordered class="meta">
           <a-descriptions-item label="调用 ID">{{ active.id }}</a-descriptions-item>
-          <a-descriptions-item label="时间">{{ active.time }}</a-descriptions-item>
+          <a-descriptions-item label="时间">{{ formatTime(active.time) }}</a-descriptions-item>
           <a-descriptions-item label="Agent">{{ active.agent }}</a-descriptions-item>
           <a-descriptions-item label="工具">
             <span class="mono">{{ active.toolName }}</span>
@@ -180,13 +193,13 @@ const active = ref<ToolInvocationRecord | null>(null);
 
 const columns = [
   { title: '调用 ID', dataIndex: 'id', width: 150 },
-  { title: '时间', dataIndex: 'time', width: 160 },
+  { title: '时间', dataIndex: 'time', width: 150 },
   { title: 'Agent', dataIndex: 'agent', width: 130 },
   { title: '工具', dataIndex: 'toolName', width: 180 },
   { title: '参数摘要', dataIndex: 'argsBrief', ellipsis: true },
-  { title: '角色 / 资源等级', dataIndex: 'callerRole', width: 180 },
-  { title: '判定', dataIndex: 'passed', width: 100 },
-  { title: '操作', dataIndex: 'op', width: 170, fixed: 'right' as const },
+  { title: '角色 / 资源等级', dataIndex: 'callerRole', width: 150 },
+  { title: '判定', dataIndex: 'passed', width: 110 },
+  { title: '操作', dataIndex: 'op', width: 210, fixed: 'right' as const },
 ];
 
 const filtered = computed(() => {
@@ -305,6 +318,14 @@ function openEvidence(eventId: string) {
   sessionStore.openEvent(eventId);
 }
 
+function formatTime(value: string) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 onMounted(load);
 </script>
 
@@ -377,9 +398,36 @@ onMounted(load);
   font-family: 'SFMono-Regular', Consolas, Menlo, monospace;
   font-size: 12.5px;
 }
-.vs {
-  margin: 0 4px;
+.time-text {
+  white-space: nowrap;
+  font-family: 'SFMono-Regular', Consolas, Menlo, monospace;
+  font-size: 12px;
+  color: #475569;
+}
+.role-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.role-text {
+  font-family: 'SFMono-Regular', Consolas, Menlo, monospace;
+  font-size: 12px;
+  color: #334155;
+}
+.slash {
   color: #94A3B8;
+}
+.level-tag,
+.status-mini {
+  margin-inline-end: 0;
+  font-weight: 700;
+}
+.op-actions {
+  white-space: nowrap;
+}
+.op-link {
+  padding: 0 2px;
 }
 :deep(.row-breach) {
   background: rgba(255, 228, 230, 0.45) !important;

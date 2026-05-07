@@ -11,6 +11,7 @@ def get_dashboard_overview() -> dict[str, Any]:
     total_events = len(events)
     high_risk_events = sum(1 for event in events if _risk_level(event) == "high")
     tool_audit_count = sum(1 for event in events if event.get("functionCall") or event.get("function_call"))
+    risk_type_distribution = _build_risk_type_distribution(events)
     leak_block_count = sum(
         1
         for event in events
@@ -26,6 +27,8 @@ def get_dashboard_overview() -> dict[str, Any]:
             "weekChangePercent": _week_change_percent(events),
         },
         "trend": _build_trend(events),
+        "riskTypeDistribution": risk_type_distribution,
+        "risk_type_distribution": risk_type_distribution,
     }
 
 
@@ -73,6 +76,46 @@ def _build_trend(events: list[dict[str, Any]]) -> dict[str, list[Any]]:
         "toolAbuse": [counters["toolAbuse"][day] for day in dates],
         "dataLeak": [counters["dataLeak"][day] for day in dates],
     }
+
+
+def _build_risk_type_distribution(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    labels = {
+        "prompt_injection": "提示注入",
+        "rule_override": "规则覆盖",
+        "privilege_escalation": "工具越权",
+        "sensitive_data_exfiltration": "敏感泄露",
+        "normal": "正常请求",
+        "unknown": "其他",
+    }
+    counters: Counter[str] = Counter()
+
+    for event in events:
+        risk_type = _risk_type(event) or "unknown"
+        counters[risk_type] += 1
+
+    ordered_types = [
+        "prompt_injection",
+        "rule_override",
+        "privilege_escalation",
+        "sensitive_data_exfiltration",
+        "normal",
+    ]
+    distribution = [
+        {
+            "type": risk_type,
+            "label": labels[risk_type],
+            "count": counters[risk_type],
+        }
+        for risk_type in ordered_types
+    ]
+
+    other_count = sum(
+        count for risk_type, count in counters.items() if risk_type not in set(ordered_types)
+    )
+    if other_count:
+        distribution.append({"type": "unknown", "label": labels["unknown"], "count": other_count})
+
+    return distribution
 
 
 def _week_change_percent(events: list[dict[str, Any]]) -> float:

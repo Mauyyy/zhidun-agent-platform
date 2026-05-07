@@ -40,7 +40,8 @@ export async function request<T>(
   const { skipEnvelope, ...init } = options;
   const url = apiUrl(path);
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    'Content-Type': 'application/json; charset=utf-8',
     ...getAuthHeader(),
     ...(init.headers || {}),
   };

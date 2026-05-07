@@ -68,6 +68,108 @@ export interface ChatMessageResponse {
   assistant: ChatAssistantPayload;
 }
 
+export interface BackendRuleHit {
+  ruleId?: string;
+  rule_id?: string;
+  name?: string;
+  riskType?: string;
+  risk_type?: string;
+  severity?: string;
+  score?: number;
+  matchedPatterns?: string[];
+  matched_patterns?: string[];
+}
+
+export interface BackendRiskComponents {
+  ruleScore?: number;
+  rule_score?: number;
+  semanticScore?: number;
+  semantic_score?: number;
+  contextScore?: number;
+  context_score?: number;
+  resourceSensitivityScore?: number;
+  resource_sensitivity_score?: number;
+}
+
+export interface BackendRbacResult {
+  allowed?: boolean;
+  role?: string;
+  reason?: string;
+  passed?: boolean;
+  matched_role?: string;
+  reject_reason?: string;
+  matchedPolicy?: unknown;
+  matched_policy?: unknown;
+}
+
+export interface BackendOutputDiff {
+  before?: string;
+  after?: string;
+  original?: string;
+  masked?: string;
+  changed?: boolean;
+  redactions?: unknown[];
+}
+
+export interface BackendChatMessageData {
+  sessionId?: string;
+  session_id?: string;
+  reply?: string;
+  blocked?: boolean;
+  decision?: string;
+  riskLevel?: string;
+  risk_level?: string;
+  riskType?: string;
+  risk_type?: string;
+  riskScore?: number;
+  risk_score_total?: number;
+  riskComponents?: BackendRiskComponents;
+  risk_components?: BackendRiskComponents;
+  ruleHits?: BackendRuleHit[];
+  rule_hits?: BackendRuleHit[];
+  functionCall?: Record<string, unknown> | null;
+  function_call?: Record<string, unknown> | null;
+  rbacResult?: BackendRbacResult;
+  rbac_result?: BackendRbacResult;
+  outputDiff?: BackendOutputDiff;
+  output_diff?: BackendOutputDiff;
+  eventId?: string | null;
+  event_id?: string | null;
+  auditConclusion?: string;
+  audit_conclusion?: string;
+}
+
+export interface BackendSecurityEvent extends BackendChatMessageData {
+  eventId?: string;
+  event_id?: string;
+  timestamp?: string;
+  action?: string;
+  userInput?: string;
+  user_input?: string;
+}
+
+export interface BackendSecurityEventListData {
+  items?: BackendSecurityEvent[];
+  total?: number;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface BackendReportData {
+  eventId?: string;
+  event_id?: string;
+  generatedAt?: string;
+  generated_at?: string;
+  title?: string;
+  summary?: string;
+  decision?: string;
+  riskLevel?: string;
+  risk_level?: string;
+  riskScore?: number;
+  risk_score_total?: number;
+  recommendation?: string;
+}
+
 export type SensitivityLevel = 'L1' | 'L2' | 'L3' | 'L4';
 
 export interface ToolPolicy {

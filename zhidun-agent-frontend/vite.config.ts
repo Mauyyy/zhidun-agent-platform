@@ -12,9 +12,9 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      // 开发时请求 /api → 后端（默认 8080，可在 .env 里改 VITE_DEV_PROXY_TARGET）
+      // 开发时请求 /api → 后端（默认 8000，可在 .env 里改 VITE_DEV_PROXY_TARGET）
       '/api': {
-        target: process.env.VITE_DEV_PROXY_TARGET || 'http://127.0.0.1:8080',
+        target: process.env.VITE_DEV_PROXY_TARGET || 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },

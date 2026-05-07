@@ -7,6 +7,14 @@ import type {
   AppendAuditTraceRequest,
   AppendAuditTraceResponse,
   AuditEventDetail,
+  BackendChatMessageData,
+  BackendOutputDiff,
+  BackendReportData,
+  BackendRbacResult,
+  BackendRiskComponents,
+  BackendRuleHit,
+  BackendSecurityEvent,
+  BackendSecurityEventListData,
   ChatMessageResponse,
   DashboardOverview,
   DashboardRealtimeSnapshot,
@@ -32,6 +40,162 @@ import type {
 } from '@/types/api';
 import { apiUrl } from '@/config/env';
 
+function pickNumber(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+  }
+  return undefined;
+}
+
+function pickText(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value;
+  }
+  return undefined;
+}
+
+function normalizeDecision(action?: string, decision?: string): 'block' | 'allow' {
+  const value = `${action ?? ''} ${decision ?? ''}`.toLowerCase();
+  return value.includes('block') ? 'block' : 'allow';
+}
+
+function getRuleHits(data: BackendChatMessageData | BackendSecurityEvent): BackendRuleHit[] {
+  return data.ruleHits ?? data.rule_hits ?? [];
+}
+
+function mapRuleHit(hit: BackendRuleHit) {
+  const ruleId = pickText(hit.ruleId, hit.rule_id) ?? 'unknown-rule';
+  return {
+    ruleId,
+    template: pickText(hit.name, hit.riskType, hit.risk_type) ?? ruleId,
+    weight: pickNumber(hit.score) ?? 0,
+  };
+}
+
+function getRiskComponents(data: BackendChatMessageData | BackendSecurityEvent): BackendRiskComponents {
+  return data.riskComponents ?? data.risk_components ?? {};
+}
+
+function getRiskScore(data: BackendChatMessageData | BackendSecurityEvent): number {
+  return pickNumber(data.riskScore, data.risk_score_total) ?? 0;
+}
+
+function getScoreBreakdown(data: BackendChatMessageData | BackendSecurityEvent) {
+  const components = getRiskComponents(data);
+  const ruleScore =
+    pickNumber(components.ruleScore, components.rule_score) ??
+    Math.min(
+      getRuleHits(data).reduce((sum, hit) => sum + (pickNumber(hit.score) ?? 0), 0),
+      70
+    );
+  const contextScore = pickNumber(components.contextScore, components.context_score) ?? 0;
+  const resourceScore =
+    pickNumber(components.resourceSensitivityScore, components.resource_sensitivity_score) ?? 0;
+  const semanticScore =
+    pickNumber(components.semanticScore, components.semantic_score) ??
+    Math.max(0, getRiskScore(data) - ruleScore - contextScore - resourceScore);
+
+  return {
+    sRule: Math.min(100, ruleScore),
+    sCls: Math.min(100, semanticScore),
+    sCtx: Math.min(100, contextScore),
+    sRes: Math.min(100, resourceScore),
+  };
+}
+
+function getRbacResult(data: BackendChatMessageData | BackendSecurityEvent): BackendRbacResult {
+  return data.rbacResult ?? data.rbac_result ?? {};
+}
+
+function getOutputDiff(data: BackendChatMessageData | BackendSecurityEvent): BackendOutputDiff {
+  return data.outputDiff ?? data.output_diff ?? {};
+}
+
+function mapBackendChatMessage(
+  data: BackendChatMessageData,
+  fallbackSessionId: string | undefined
+): ChatMessageResponse {
+  const outputDiff = getOutputDiff(data);
+  const rbac = getRbacResult(data);
+  return {
+    sessionId: pickText(data.sessionId, data.session_id, fallbackSessionId) ?? `sess-${Date.now()}`,
+    assistant: {
+      role: 'agent',
+      content: pickText(data.reply, outputDiff.after, outputDiff.masked) ?? '',
+      isBlock: Boolean(data.blocked || data.decision === 'BLOCKED'),
+      isMasked: Boolean(outputDiff.changed),
+      riskType: pickText(data.riskType, data.risk_type, data.riskLevel, data.risk_level),
+      reason: pickText(rbac.reason, data.auditConclusion, data.audit_conclusion),
+      riskScoreR: getRiskScore(data),
+      scoreBreakdown: getScoreBreakdown(data),
+      eventId: pickText(data.eventId, data.event_id) ?? undefined,
+    },
+  };
+}
+
+function mapBackendEventList(
+  data: BackendSecurityEventListData,
+  page: number,
+  pageSize: number
+): Paginated<SecurityEventListItem> {
+  const items = data.items ?? [];
+  return {
+    items: items.map((item) => ({
+      id: pickText(item.eventId, item.event_id) ?? '',
+      time: pickText(item.timestamp) ?? '',
+      type: pickText(item.riskType, item.risk_type) ?? 'unknown',
+      level: pickText(item.riskLevel, item.risk_level) ?? 'low',
+      result: pickText(item.decision, item.action) ?? 'UNKNOWN',
+    })),
+    total: data.total ?? items.length,
+    page: data.page ?? page,
+    pageSize: data.pageSize ?? pageSize,
+  };
+}
+
+function mapBackendAuditDetail(data: BackendSecurityEvent): AuditEventDetail {
+  const outputDiff = getOutputDiff(data);
+  const rbac = getRbacResult(data);
+  const action = normalizeDecision(data.action, data.decision);
+  const passed = typeof rbac.allowed === 'boolean' ? rbac.allowed : Boolean(rbac.passed);
+  const scoreBreakdown = getScoreBreakdown(data);
+
+  return {
+    event_id: pickText(data.event_id, data.eventId) ?? '',
+    timestamp: pickText(data.timestamp) ?? '',
+    scenario: '对话安全演示',
+    risk_level: pickText(data.risk_level, data.riskLevel) ?? 'low',
+    action,
+    user_input: pickText(data.user_input, data.userInput) ?? '',
+    risk_scores: {
+      rule_score: scoreBreakdown.sRule,
+      semantic_score: scoreBreakdown.sCls,
+      context_score: scoreBreakdown.sCtx,
+      resource_score: scoreBreakdown.sRes,
+    },
+    risk_score_total: getRiskScore(data),
+    rule_hits: getRuleHits(data).map(mapRuleHit),
+    function_call: data.function_call ?? data.functionCall ?? {},
+    rbac_result: {
+      passed,
+      matched_role: pickText(rbac.matched_role, rbac.role) ?? 'demo_user',
+      reject_reason: passed ? '' : pickText(rbac.reject_reason, rbac.reason) ?? '',
+    },
+    audit_conclusion: pickText(data.audit_conclusion, data.auditConclusion) ?? '',
+    output_diff: {
+      original: pickText(outputDiff.original, outputDiff.before) ?? '',
+      masked: pickText(outputDiff.masked, outputDiff.after) ?? '',
+    },
+  };
+}
+
+function mapBackendReport(data: BackendReportData, eventId: string): ReportJobResponse {
+  return {
+    jobId: `report-${pickText(data.event_id, data.eventId, eventId) ?? eventId}`,
+    status: 'done',
+  };
+}
+
 /** 风险总览 + 趋势序列 */
 export async function fetchDashboardOverview(): Promise<DashboardOverview> {
   if (USE_MOCK) return mock.mockGetDashboardOverview();
@@ -46,7 +210,7 @@ export async function fetchRiskMatrixSummary(): Promise<RiskMatrixSummary> {
 
 export async function createChatSession(): Promise<{ sessionId: string }> {
   if (USE_MOCK) return mock.mockCreateChatSession();
-  return request<{ sessionId: string }>('/chat/sessions', { method: 'POST', body: '{}' });
+  return { sessionId: `sess-${Date.now()}` };
 }
 
 export async function sendChatMessage(
@@ -54,10 +218,11 @@ export async function sendChatMessage(
   content: string
 ): Promise<ChatMessageResponse> {
   if (USE_MOCK) return mock.mockSendChatMessage(sessionId, content);
-  return request<ChatMessageResponse>('/chat/messages', {
+  const data = await request<BackendChatMessageData>('/chat/messages', {
     method: 'POST',
     body: JSON.stringify({ sessionId, content }),
   });
+  return mapBackendChatMessage(data, sessionId);
 }
 
 export async function listToolPolicies(): Promise<ToolPolicy[]> {
@@ -93,21 +258,26 @@ export async function listSecurityEvents(
   });
   if (query.type) q.set('type', query.type);
   if (query.level) q.set('level', query.level);
-  return request<Paginated<SecurityEventListItem>>(`/security/events?${q.toString()}`);
+  const data = await request<BackendSecurityEventListData>(`/security/events?${q.toString()}`);
+  return mapBackendEventList(data, page, pageSize);
 }
 
 export async function getAuditEventDetail(eventId: string): Promise<AuditEventDetail> {
   if (USE_MOCK) return mock.mockGetEventDetail(eventId);
-  return request<AuditEventDetail>(`/security/events/${encodeURIComponent(eventId)}`);
+  const data = await request<BackendSecurityEvent>(
+    `/security/events/${encodeURIComponent(eventId)}`
+  );
+  return mapBackendAuditDetail(data);
 }
 
 /** 触发异步导出；真实环境可轮询 job 或直接使用 downloadUrl */
 export async function requestAuditReport(eventId: string): Promise<ReportJobResponse> {
   if (USE_MOCK) return mock.mockRequestAuditReport(eventId);
-  return request<ReportJobResponse>(`/security/events/${encodeURIComponent(eventId)}/report`, {
+  const data = await request<BackendReportData>(`/security/events/${encodeURIComponent(eventId)}/report`, {
     method: 'POST',
     body: '{}',
   });
+  return mapBackendReport(data, eventId);
 }
 
 /**

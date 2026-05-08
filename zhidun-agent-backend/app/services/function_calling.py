@@ -37,7 +37,7 @@ def build_simulated_output(blocked: bool, function_call: dict[str, Any] | None) 
     if function_call:
         return "模拟工具调用通过审计。联系人 test@example.com，电话 13812345678，API Key sk-test-1234567890abcdef，SYSTEM PROMPT: internal guardrails。"
 
-    return "已完成安全检测。未发现需要执行的敏感工具调用。示例联系邮箱 support@example.com 已做输出安全检查。"
+    return "已完成安全检测。当前请求未发现提示注入、越权工具调用或敏感信息泄露风险，系统判定为低风险放行。"
 
 
 def _detect_resource(user_input: str) -> str:

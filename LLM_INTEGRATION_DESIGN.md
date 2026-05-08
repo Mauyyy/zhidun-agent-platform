@@ -162,6 +162,36 @@ python scripts/test_tool_call_guard.py
 
 该脚本不调用 `chat/messages` 主线，不写入 `events.json`，不需要 API Key，也不执行真实工具。
 
+### 真实模型 tool_call 输出解析隔离验证
+
+当前新增独立脚本：
+
+```text
+zhidun-agent-backend/scripts/test_real_model_tool_call.py
+```
+
+验证目标：
+
+- 将 `tool_registry.py` 中的 tools schema 传给真实模型。
+- 观察模型返回普通文本还是 `tool_call`。
+- 如果模型返回 `tool_call`，解析工具名、参数和原始 tool_call id。
+- 将解析后的 `tool_call` 交给 `tool_call_guard.py` 审计。
+- 不调用 `chat/messages` 主线，不写入 `events.json`，不执行任何工具。
+
+运行方式：
+
+```powershell
+cd d:\计算机\zhidun_agent\zhidun-agent-backend
+python scripts/test_real_model_tool_call.py
+```
+
+注意事项：
+
+- 未配置 `OPENAI_API_KEY` 时脚本会跳过真实模型调用。
+- 模型可能返回普通文本，也可能返回 `tool_call`，两种结果都属于隔离验证的有效输出。
+- 模型即使返回 `read_system_file`，也只是工具调用请求，必须先由 `tool_call_guard.py` 审计。
+- 当前阶段仍不接入 `POST /api/v1/chat/messages` 主线。
+
 ### audit_service.py
 
 职责：

@@ -47,3 +47,21 @@ python scripts/test_tool_call_guard.py
 - 该脚本不写入 `app/data/events.json`。
 - 该脚本不执行真实工具，不访问真实文件系统。
 - `read_system_file` 仅用于验证高敏工具调用会在执行前被阻断。
+
+## 真实模型 tool_call 输出解析隔离验证（可选）
+
+当前项目默认不依赖真实大模型。配置后端环境变量后，可以单独验证真实模型在给定 tools schema 时返回普通文本或 `tool_call` 的情况。
+
+运行方式：
+
+```powershell
+cd d:\计算机\zhidun_agent\zhidun-agent-backend
+python scripts/test_real_model_tool_call.py
+```
+
+说明：
+
+- 未配置 `OPENAI_API_KEY` 时，脚本会友好跳过真实模型调用。
+- 配置 API Key 后，脚本会调用真实模型并解析返回的 `tool_call`。
+- 所有 `tool_call` 只会进入 `tool_call_guard` 审计，不会直接执行工具。
+- 该脚本不调用 `POST /api/v1/chat/messages`，不写入 `app/data/events.json`。

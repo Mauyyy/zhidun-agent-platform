@@ -186,6 +186,7 @@ zhidun-agent-backend/app/core/config.py
 - 测试样例接口。
 - 工具调用流水，由 `events.json` 中的审计事件派生。
 - 脱敏预览，复用后端脱敏逻辑。
+- 测试样例自动评测脚本，覆盖正常请求、提示注入、规则覆盖、工具越权、敏感泄露诱导、链式攻击和边界模糊请求。
 
 ## 当前未实现功能
 
@@ -225,6 +226,46 @@ zhidun-agent-backend/app/core/config.py
 - 返回 `eventId`。
 - 证据链详情可查看完整审计过程。
 
+## 自动评测
+
+后端提供本地自动评测脚本，不依赖真实网络，不接真实大模型。脚本会读取 `app/data/test_cases.json`，通过 FastAPI `TestClient` 调用 `POST /api/v1/chat/messages`，并生成 Markdown 报告。
+
+运行方式：
+
+```powershell
+cd D:\计算机\zhidun_agent\zhidun-agent-backend
+python scripts/evaluate_test_cases.py
+```
+
+当前样例库共 28 条，覆盖：
+
+- normal：5 条
+- prompt_injection：5 条
+- rule_override：3 条
+- tool_abuse：5 条
+- sensitive_data_exfiltration：5 条
+- chained_attack：3 条
+- borderline：2 条
+
+脚本输出：
+
+- `totalCases`
+- `passedCases`
+- `failedCases`
+- `passRate`
+- `falsePositiveCount`
+- `falseNegativeCount`
+- `blockedCount`
+- `allowedCount`
+
+评测报告位置：
+
+```text
+zhidun-agent-backend/reports/evaluation_report.md
+```
+
+注意：评测会调用对话接口并产生运行时审计事件，脚本结束时会把 `app/data/events.json` 重置为 `[]`。
+
 ## 常见问题
 
 ### 是否接入了真实大模型？
@@ -250,4 +291,3 @@ zhidun-agent-backend/app/core/config.py
 ### events.json 是否应该提交测试事件？
 
 不建议。`events.json` 是运行时审计事件文件，演示时会动态产生事件。文档中只使用结构化示例，不提交具体测试事件内容。
-

@@ -463,6 +463,8 @@ Invoke-RestMethod -Method GET http://127.0.0.1:8000/api/v1/security/rbac
 
 请求参数：无。
 
+当前样例库包含 28 条样例，覆盖 normal、prompt_injection、rule_override、tool_abuse、sensitive_data_exfiltration、chained_attack 和 borderline。自动评测脚本会读取同一份 `app/data/test_cases.json`。
+
 PowerShell 示例：
 
 ```powershell

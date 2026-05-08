@@ -53,7 +53,22 @@ Invoke-RestMethod -Method GET http://127.0.0.1:8000/api/v1/security/test-cases
 验收点：
 
 - 返回正常请求、提示注入、工具越权、敏感泄露、链式攻击样例。
+- 样例总数为 28 条。
+- 覆盖 normal、prompt_injection、rule_override、tool_abuse、sensitive_data_exfiltration、chained_attack、borderline。
 - `case_tool_abuse_001.expectedRiskLevel` 为 `high`。
+
+运行自动评测：
+
+```powershell
+cd D:\计算机\zhidun_agent\zhidun-agent-backend
+python scripts/evaluate_test_cases.py
+```
+
+验收点：
+
+- 输出 `totalCases`、`passedCases`、`failedCases`、`passRate`。
+- 生成 `reports/evaluation_report.md`。
+- 评测结束后 `app/data/events.json` 仍为 `[]`。
 
 ## 二、前端页面测试
 
@@ -254,6 +269,7 @@ Invoke-RestMethod -Method POST http://127.0.0.1:8000/api/v1/security/events/evt_
 - 确认没有新增登录注册、数据库、真实大模型调用。
 - 确认没有开放规则/策略写接口。
 - 确认 `chat/messages` 主线正常。
+- 确认自动评测报告已更新，且没有把运行时事件作为固定数据写入文档。
 - 确认前端 build 通过：
 
 ```powershell
@@ -267,4 +283,3 @@ npm run build
 cd D:\计算机\zhidun_agent\zhidun-agent-backend
 python -m compileall app
 ```
-

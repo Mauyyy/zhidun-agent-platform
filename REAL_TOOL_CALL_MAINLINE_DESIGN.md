@@ -1,6 +1,6 @@
 # 真实 tool_call 接入安全审计主线设计
 
-本文档用于设计如何在不破坏现有规则 MVP 的前提下，将真实模型返回的 `tool_call` 接入 `chat/messages` 安全审计主线。当前文档只做方案设计，不直接编码接入，不修改前端，不新增接口，不执行真实工具。
+本文档用于说明如何在不破坏现有规则 MVP 的前提下，将真实模型返回的 `tool_call` 接入 `chat/messages` 安全审计主线。当前接入保持默认关闭，不修改前端，不新增接口，不执行真实敏感工具。
 
 ## 一、接入目标
 
@@ -16,6 +16,16 @@
 - 前端展示证据链。
 
 未来真实模型模式只是在默认 MVP 之外增加一条可关闭、可回退、可审计的分支。真实模型可以返回普通文本或 `tool_call`，但模型不能直接获得工具执行权限。
+
+当前最小实现状态：
+
+- `USE_REAL_LLM=false` 时，默认仍走当前规则 MVP。
+- `USE_REAL_TOOL_CALL=false` 时，不进入真实 `tool_call` 主线。
+- 只有 `USE_REAL_LLM=true`、`USE_REAL_TOOL_CALL=true` 且 `OPENAI_API_KEY` 存在时，低风险请求才可能调用真实模型并传入 tools schema。
+- 高危、已阻断、触发 `read_system_file` 或 RBAC deny 的请求仍由规则 MVP 提前阻断，不调用真实模型。
+- 真实模型返回的 `tool_call` 必须先进入 `tool_call_guard.py`。
+- guard 允许后也只执行 `sandbox_tools.py` 中的虚拟工具。
+- `read_system_file` 永远不会访问真实文件系统。
 
 ## 二、接入原则
 
@@ -139,15 +149,22 @@ LLM_BASE_URL=
 - `read_system_file` 不得访问真实文件系统。
 - 允许执行的工具也只能走 `sandbox_tools.py` 虚拟结果。
 
+当前最小实现补充：
+
+- 模型返回普通 `text` 时，`llmMode=real_llm_text`。
+- 模型返回 `tool_call` 且 guard 允许时，`llmMode=real_model_tool_call`，并写入 `sandboxExecution`。
+- 模型返回 `tool_call` 且 guard 阻断时，`decision=BLOCKED`，并写入 `guardResult`。
+- 模型调用失败或缺少 API Key 时，`llmMode=fallback`，自动回退当前 MVP。
+
 ## 五、后端改造建议
 
-以下是未来编码阶段的改造规划，本轮不实际修改。
+以下是主线最小接入涉及的后端文件和职责说明。
 
 ### app/services/chat_service.py 或 app/api/v1/chat.py
 
 建议将当前 `chat/messages` 主线抽出到 `chat_service.py`，再由接口层调用。
 
-未来职责：
+职责：
 
 - 读取配置开关。
 - 默认走当前 MVP 分支。
@@ -357,6 +374,8 @@ LLM_BASE_URL=
 - 能识别 `tool_call`。
 - 不执行工具。
 
+当前状态：已在默认关闭的分支下完成最小接入。
+
 ### 阶段 5：接入 tool_call_guard
 
 所有真实 `tool_call` 先进入 `tool_call_guard.py`。
@@ -366,6 +385,8 @@ LLM_BASE_URL=
 - 未注册工具 `BLOCK`。
 - 参数越界 `BLOCK`。
 - `read_system_file` 高敏访问 `BLOCK`。
+
+当前状态：已完成，真实模型 `tool_call` 不会直接执行。
 
 ### 阶段 6：接入 sandbox_tools
 
@@ -377,6 +398,8 @@ LLM_BASE_URL=
 - `read_user_profile` 仅允许 `self_profile`。
 - `read_system_file` 永不访问真实文件系统。
 
+当前状态：已完成最小接入，只执行虚拟工具。
+
 ### 阶段 7：扩展审计事件
 
 写入 `functionCallSource`、`llmTrace`、`guardResult` 和 `sandboxExecution`。
@@ -385,6 +408,8 @@ LLM_BASE_URL=
 
 - 事件详情能展示完整证据。
 - 旧字段仍兼容前端。
+
+当前状态：已扩展 `functionCallSource`、`llmMode`、`llmTrace`、`guardResult`、`sandboxExecution` 可选字段。
 
 ### 阶段 8：前端证据链展示
 

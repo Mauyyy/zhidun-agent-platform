@@ -88,3 +88,26 @@ $env:OPENAI_API_KEY="your_api_key_here"
 $env:LLM_MODEL="gpt-4.1-mini"
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
+
+## 真实 tool_call 主线模式（可选）
+
+真实 `tool_call` 主线是安全网关的可选增强，默认关闭。只有同时满足 `USE_REAL_LLM=true`、`USE_REAL_TOOL_CALL=true` 且后端配置 `OPENAI_API_KEY` 时，低风险请求才可能调用真实模型并传入 tools schema。
+
+安全边界：
+
+- 默认不启用真实大模型。
+- 默认不启用真实 `tool_call`。
+- 高危请求、已阻断请求、触发 `read_system_file` 或 RBAC deny 的请求仍优先走规则 MVP 阻断。
+- 模型返回 `tool_call` 后不会直接执行，必须先进入 `tool_call_guard`。
+- guard 允许后也只执行 `sandbox_tools` 中的虚拟工具。
+- `read_system_file` 永远不会访问真实文件系统。
+- 无 API Key 或模型调用失败时自动回退当前 MVP。
+
+本地回归验证：
+
+```powershell
+cd d:\计算机\zhidun_agent\zhidun-agent-backend
+python scripts/test_real_tool_call_mainline_flags.py
+```
+
+该脚本不需要真实 API Key，会模拟模型返回 text、允许的 `search_public_docs` tool_call，以及高危 `read_system_file` tool_call。

@@ -2,7 +2,7 @@
 
 智盾Agent 是一个面向大模型应用的安全控制层原型，用于演示提示注入、工具越权与敏感数据泄露的一体化防护闭环。
 
-当前项目已经完成 FastAPI 后端 MVP 与 Vue 前端联调。它不接真实大模型，不训练模型，不接真实数据库，也不做登录注册。当前 Function Calling 是安全网关 MVP 中的模拟/派生机制，用于在工具执行前展示审计与 RBAC 阻断能力。
+当前项目已经完成 FastAPI 后端 MVP 与 Vue 前端联调。默认模式不依赖真实大模型，不训练模型，不接真实数据库，也不做登录注册。当前规则 MVP 中的 Function Calling 是安全网关的模拟/派生机制，用于在工具执行前展示审计与 RBAC 阻断能力；真实大模型普通文本与真实 `tool_call` 主线仅作为显式开关下的可选增强，默认关闭。
 
 ## 项目定位
 
@@ -188,12 +188,14 @@ zhidun-agent-backend/app/core/config.py
 - 工具调用流水，由 `events.json` 中的审计事件派生。
 - 脱敏预览，复用后端脱敏逻辑。
 - 测试样例自动评测脚本，覆盖正常请求、提示注入、规则覆盖、工具越权、敏感泄露诱导、链式攻击和边界模糊请求。
+- 真实大模型普通文本回复模式，可选开启，低风险请求才会尝试调用真实模型。
+- 真实 `tool_call` 主线最小接入，可选开启，所有工具调用必须先经过 guard，且只执行 sandbox 虚拟工具。
 
 ## 当前未实现功能
 
-- 未接真实大模型。
-- 未接真实大模型 API。
-- 未接真实 Function Calling。
+- 默认未启用真实大模型。
+- 默认未启用真实 Function Calling。
+- 未执行真实敏感工具。
 - 未训练模型。
 - 未训练语义分类模型，当前 `S_cls` 未启用轻量模型。
 - 未接真实数据库。
@@ -313,15 +315,43 @@ python scripts/test_llm_client.py
 
 该脚本只调用 `app/services/llm_client.py`，不会调用 `chat/messages`，不会生成审计事件，也不会执行任何工具。
 
+## 真实 tool_call 主线模式（可选）
+
+真实 `tool_call` 主线默认关闭，必须显式设置：
+
+```powershell
+cd D:\计算机\zhidun_agent\zhidun-agent-backend
+$env:USE_REAL_LLM = "true"
+$env:USE_REAL_TOOL_CALL = "true"
+$env:OPENAI_API_KEY = "your_api_key_here"
+$env:LLM_MODEL = "gpt-4.1-mini"
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+安全边界：
+
+- 无 API Key 自动回退当前规则 MVP。
+- 高危请求仍优先由规则 MVP 阻断，不调用真实模型。
+- 模型返回 `tool_call` 后必须先经过 `tool_call_guard`。
+- guard 允许后也只执行 `sandbox_tools` 中的虚拟工具。
+- `read_system_file` 永远不会访问真实文件系统。
+
+无需真实 API Key 的回归验证：
+
+```powershell
+cd D:\计算机\zhidun_agent\zhidun-agent-backend
+python scripts/test_real_tool_call_mainline_flags.py
+```
+
 ## 常见问题
 
 ### 是否接入了真实大模型？
 
-没有。当前不会调用真实 LLM，也不会训练模型。
+默认不会调用真实 LLM，也不会训练模型。只有显式设置 `USE_REAL_LLM=true` 并配置后端 API Key 后，低风险请求才会尝试调用真实模型。
 
 ### Function Calling 是否真的执行了系统文件读取？
 
-没有。当前 Function Calling 是安全网关 MVP 中的模拟/派生机制，仅用于演示执行前审计与 RBAC 阻断。
+没有。`read_system_file` 永远不会访问真实文件系统。真实 `tool_call` 模式开启后，工具调用也必须先经过 guard，且只允许执行 sandbox 虚拟工具。
 
 ### 是否使用数据库？
 

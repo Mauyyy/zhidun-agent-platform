@@ -262,7 +262,18 @@ Invoke-RestMethod -Method POST http://127.0.0.1:8000/api/v1/security/events/evt_
 - 包含输入检测、风险评分、Function Calling 执行前审计、RBAC 越权判断、输出防护、审计结论、处置建议。
 - 当前不测试 PDF 下载。
 
-## 十、提交前检查事项
+## 十、边界样例与评测口径检查
+
+- 是否区分“规则样例集回归测试通过率”和“未知攻击泛化准确率”。
+- 是否明确说明 `28/28` 通过只代表当前 28 条规则驱动测试样例集。
+- 是否标注 `ALLOWED_OR_BLOCKED` 样例为边界或策略型样例。
+- 是否说明当前系统是规则优先的安全网关 MVP。
+- 是否说明 `S_cls` 当前未启用轻量语义分类模型。
+- 是否说明 Function Calling 当前为 MVP 模拟/派生机制，不是真实大模型产生的 tool call。
+- 是否避免使用“系统完全识别所有攻击”“泛化准确率 100%”“生产环境准确率 100%”等表述。
+- 是否阅读 `zhidun-agent-backend/reports/boundary_case_analysis.md`。
+
+## 十一、提交前检查事项
 
 - 不要提交真实企业数据。
 - 不要把 `events.json` 中的临时测试事件写进文档。

@@ -283,6 +283,36 @@ zhidun-agent-backend/reports/evaluation_report.md
 zhidun-agent-backend/reports/boundary_case_analysis.md
 ```
 
+## 真实大模型 API 隔离验证（可选）
+
+当前项目默认不依赖真实大模型，主业务安全闭环仍使用规则检测、风险评分和 MVP 模拟/派生 Function Calling。真实 API 调用是后续增强能力，本节只用于后端隔离验证，不会接入 `POST /api/v1/chat/messages` 主线，也不会写入 `events.json`。
+
+API Key 只能放在后端环境变量中，不允许写入前端，不允许提交到 Git。
+
+环境变量示例见：
+
+```text
+zhidun-agent-backend/.env.example
+```
+
+PowerShell 示例：
+
+```powershell
+cd D:\计算机\zhidun_agent\zhidun-agent-backend
+$env:LLM_PROVIDER = "openai"
+$env:OPENAI_API_KEY = "your_api_key_here"
+$env:LLM_MODEL = "gpt-4.1-mini"
+python scripts/test_llm_client.py
+```
+
+如果未配置 `OPENAI_API_KEY`，脚本会友好提示并跳过真实大模型调用：
+
+```text
+未配置 OPENAI_API_KEY，跳过真实大模型调用。
+```
+
+该脚本只调用 `app/services/llm_client.py`，不会调用 `chat/messages`，不会生成审计事件，也不会执行任何工具。
+
 ## 常见问题
 
 ### 是否接入了真实大模型？

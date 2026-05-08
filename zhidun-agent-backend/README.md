@@ -30,3 +30,20 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 }
 ```
 
+## Function Calling 安全审计隔离验证
+
+当前后端已提供虚拟 tools 与 `tool_call_guard` 隔离验证能力，用于验证真实模型 Function Calling 接入前的执行前审计骨架。
+
+运行方式：
+
+```powershell
+cd d:\计算机\zhidun_agent\zhidun-agent-backend
+python scripts/test_tool_call_guard.py
+```
+
+说明：
+
+- 该脚本不调用 `POST /api/v1/chat/messages`。
+- 该脚本不写入 `app/data/events.json`。
+- 该脚本不执行真实工具，不访问真实文件系统。
+- `read_system_file` 仅用于验证高敏工具调用会在执行前被阻断。

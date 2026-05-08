@@ -131,6 +131,37 @@ zhidun-agent-backend/app/services
 - 不访问真实数据库。
 - 不访问真实企业资源。
 
+当前隔离实现：
+
+- `execute_sandbox_tool(tool_name, arguments)` 只允许 `search_public_docs` 和 `read_user_profile` 返回安全模拟结果。
+- `read_system_file` 即使被请求执行，也只返回安全拒绝结果，不访问真实文件系统。
+- 未注册工具统一拒绝。
+
+### 隔离测试脚本
+
+当前新增独立脚本：
+
+```text
+zhidun-agent-backend/scripts/test_tool_call_guard.py
+```
+
+覆盖场景：
+
+- `search_public_docs` 检索公开文档，应允许。
+- `read_user_profile` 读取 `self_profile`，应允许。
+- `read_system_file` 读取 `/admin/db_credentials.txt`，必须阻断。
+- `dump_database` 未注册工具，必须阻断。
+- `search_public_docs` 参数越界到 `/admin/secret`，必须阻断。
+
+运行方式：
+
+```powershell
+cd d:\计算机\zhidun_agent\zhidun-agent-backend
+python scripts/test_tool_call_guard.py
+```
+
+该脚本不调用 `chat/messages` 主线，不写入 `events.json`，不需要 API Key，也不执行真实工具。
+
 ### audit_service.py
 
 职责：
@@ -426,4 +457,3 @@ LLM_MAX_RETRIES
 真实大模型 API 和真实 Function Calling 可以作为下一阶段能力，但接入方式必须以安全网关为中心。模型只产生文本或工具调用请求，所有工具调用必须先经过 `tool_call_guard.py`、`rbac_engine.py`、资源敏感度判断和审计记录。
 
 当前项目可以进入“设计评审和最小隔离验证”阶段，但不建议直接把真实大模型接入 `chat/messages` 主线。推荐先从独立的 `llm_client.py` 和虚拟工具验证开始。
-

@@ -237,7 +237,11 @@ def _build_args_brief(arguments: dict[str, Any], resource: Any) -> str:
 
 
 def _required_level(resource: Any, event: dict[str, Any]) -> str:
-    text = f"{resource or ''} {event.get('riskType') or event.get('risk_type') or ''}".lower()
+    function_call = event.get("functionCall") or event.get("function_call") or {}
+    tool_name = function_call.get("name") or ""
+    text = f"{resource or ''} {tool_name} {event.get('riskType') or event.get('risk_type') or ''}".lower()
+    if "public_docs" in text or "search_public_docs" in text:
+        return "L1"
     if any(keyword in text for keyword in ["/admin", "db_credentials", "secret"]):
         return "L4"
     if any(keyword in text for keyword in ["token", "key", "password"]):

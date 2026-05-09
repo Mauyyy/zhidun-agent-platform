@@ -55,7 +55,11 @@ def create_chat_message(payload: ChatMessageRequest) -> dict:
     decision = "BLOCKED" if blocked else "ALLOWED"
     action = _build_action(blocked, function_call_source, llm_mode)
     event = None
-    if should_create_event(risk["riskScore"], decision) or llm_mode in {"real_llm_text", "real_model_tool_call"}:
+    if (
+        should_create_event(risk["riskScore"], decision)
+        or function_call is not None
+        or llm_mode in {"real_llm_text", "real_model_tool_call"}
+    ):
         event = create_audit_event(
             session_id=payload.session_id,
             user_input=user_input,
@@ -345,6 +349,8 @@ def _build_action(blocked: bool, function_call_source: str, llm_mode: str) -> st
         return "real_tool_call_blocked" if blocked else "real_tool_call_allowed"
     if blocked:
         return "function_call_blocked"
+    if function_call_source == "simulated":
+        return "function_call_allowed"
     if function_call_source == "real_model_tool_call":
         return "real_tool_call_checked"
     return "chat_guardrail_checked"

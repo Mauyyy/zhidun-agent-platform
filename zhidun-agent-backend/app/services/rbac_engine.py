@@ -9,7 +9,7 @@ def check_rbac(function_call: dict[str, Any] | None, role: str = "demo_user") ->
         return {
             "allowed": True,
             "role": role,
-            "reason": "没有产生 Function Calling 请求，无需 RBAC 拦截",
+            "reason": "未产生工具调用，无需 RBAC 拦截",
             "matchedPolicy": None,
             "matched_policy": None,
         }

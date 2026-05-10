@@ -27,7 +27,7 @@ def create_chat_message(payload: ChatMessageRequest) -> dict:
     risk = calculate_risk(user_input, rule_hits)
     function_call = simulate_function_call(user_input)
     rbac_result = check_rbac(function_call)
-    blocked = function_call is not None and not rbac_result["allowed"]
+    blocked = _should_block_request(risk, function_call, rbac_result)
     raw_output = build_simulated_output(blocked=blocked, function_call=function_call)
     function_call_source = "simulated" if function_call else "none"
     guard_result = None
@@ -264,6 +264,16 @@ def _try_generate_real_tool_call_reply(user_input: str, trace: dict) -> dict:
 
     trace["reason"] = "模型返回 tool_call 为空，回退当前规则 MVP。"
     return _llm_branch_result("fallback", trace)
+
+
+def _should_block_request(
+    risk: dict,
+    function_call: dict | None,
+    rbac_result: dict,
+) -> bool:
+    if risk["riskScore"] >= HIGH_RISK_THRESHOLD or risk["riskLevel"] == "high":
+        return True
+    return function_call is not None and not rbac_result["allowed"]
 
 
 def _llm_branch_result(

@@ -125,6 +125,7 @@ export interface BackendChatMessageData {
   reply?: string;
   blocked?: boolean;
   decision?: string;
+  action?: string;
   riskLevel?: string;
   risk_level?: string;
   riskType?: string;
@@ -191,6 +192,8 @@ export interface BackendSecurityRule {
   severity?: string;
   score?: number;
   patterns?: string[];
+  hits7d?: number;
+  hits_7d?: number;
 }
 
 export interface BackendRbacPolicyData {

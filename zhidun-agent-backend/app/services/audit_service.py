@@ -327,6 +327,8 @@ def _build_report_sections(event: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _build_conclusion(risk: dict[str, Any], decision: str, rbac_result: dict[str, Any]) -> str:
     if decision == "BLOCKED":
+        if rbac_result.get("allowed") is not False:
+            return "输入风险达到高危阈值，已阻断并记录审计事件。"
         return f"请求风险等级为 {risk['riskLevel']}，{rbac_result.get('reason')}最终结论：阻断。"
     if risk["riskScore"] >= HIGH_RISK_THRESHOLD:
         return "请求达到高风险阈值，但未产生越权工具执行，已完成输出脱敏和审计记录。"

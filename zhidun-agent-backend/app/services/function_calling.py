@@ -54,6 +54,8 @@ def simulate_function_call(user_input: str) -> dict[str, Any] | None:
 
 def build_simulated_output(blocked: bool, function_call: dict[str, Any] | None) -> str:
     if blocked:
+        if not function_call:
+            return "请求已被阻断：检测到高风险提示注入、规则覆盖等输入风险，已阻断。"
         return "请求已被阻断：检测到高风险工具调用，可能访问系统提示、admin 路径或敏感密钥。"
 
     if function_call:

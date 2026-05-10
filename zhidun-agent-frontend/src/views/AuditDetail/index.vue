@@ -34,8 +34,8 @@
         <a-card :bordered="false" class="verdict-focus-card">
           <a-row :gutter="[16, 16]" align="middle">
             <a-col :xs="24" :md="8">
-              <div class="verdict-chip" :class="detail.rbac_result.passed ? 'is-allow' : 'is-block'">
-                {{ detail.rbac_result.passed ? 'ALLOW · 放行' : 'BLOCK · 拦截' }}
+              <div class="verdict-chip" :class="isFinalBlocked ? 'is-block' : 'is-allow'">
+                {{ isFinalBlocked ? 'BLOCK · 拦截' : 'ALLOW · 放行' }}
               </div>
               <div class="verdict-sub">最终执行裁决</div>
             </a-col>
@@ -211,6 +211,12 @@ const scoreMap = computed(() => {
     '上下文异常度 (S_ctx)': d.risk_scores.context_score,
     '资源敏感度 (S_res)': d.risk_scores.resource_score,
   };
+});
+
+const isFinalBlocked = computed(() => {
+  const d = detail.value;
+  if (!d) return false;
+  return d.action === 'block' || d.risk_level === 'high' || (d.risk_score_total ?? 0) >= 70;
 });
 
 async function load(id: string) {

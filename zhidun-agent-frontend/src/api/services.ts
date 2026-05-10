@@ -65,6 +65,16 @@ function normalizeDecision(action?: string, decision?: string): 'block' | 'allow
   return value.includes('block') ? 'block' : 'allow';
 }
 
+function resolveFinalAction(data: BackendChatMessageData | BackendSecurityEvent): 'block' | 'allow' {
+  const decision = pickText(data.decision)?.toUpperCase();
+  const riskLevel = pickText(data.riskLevel, data.risk_level)?.toLowerCase();
+  const riskScore = getRiskScore(data);
+  if (data.blocked === true || decision === 'BLOCKED' || riskScore >= 70 || riskLevel === 'high') {
+    return 'block';
+  }
+  return normalizeDecision(data.action, data.decision);
+}
+
 function displayRiskLevel(level?: string): string {
   const value = (level ?? '').toLowerCase();
   if (value === 'high' || value === 'critical') return '高危';
@@ -204,7 +214,7 @@ function mapBackendEventList(
 function mapBackendAuditDetail(data: BackendSecurityEvent): AuditEventDetail {
   const outputDiff = getOutputDiff(data);
   const rbac = getRbacResult(data);
-  const action = normalizeDecision(data.action, data.decision);
+  const action = resolveFinalAction(data);
   const passed = typeof rbac.allowed === 'boolean' ? rbac.allowed : Boolean(rbac.passed);
   const scoreBreakdown = getScoreBreakdown(data);
 
@@ -262,7 +272,7 @@ function mapBackendRule(rule: BackendSecurityRule): InjectionRule {
     category: ruleCategory(riskType),
     weight: Math.min(1, Math.max(0, (rule.score ?? 0) / 100)),
     enabled: true,
-    hits7d: 0,
+    hits7d: pickNumber(rule.hits7d, rule.hits_7d) ?? 0,
     description: `${displayRiskType(riskType)} · ${rule.severity ?? 'unknown'}`,
   };
 }

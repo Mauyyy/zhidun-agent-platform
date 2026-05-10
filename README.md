@@ -368,4 +368,3 @@ python scripts/test_real_tool_call_mainline_flags.py
 ### events.json 是否应该提交测试事件？
 
 不建议。`events.json` 是运行时审计事件文件，演示时会动态产生事件。文档中只使用结构化示例，不提交具体测试事件内容。
-hello

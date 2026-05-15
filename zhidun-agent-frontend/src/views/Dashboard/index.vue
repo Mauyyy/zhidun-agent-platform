@@ -86,6 +86,61 @@
         </a-col>
       </a-row>
 
+      <!-- 运行模式分布 + 工具调用统计 -->
+      <a-row :gutter="24" class="section-row section-row--split" align="stretch">
+        <a-col :xs="24" :lg="12" class="dash-col-fill">
+          <a-card :bordered="false" class="chart-card">
+            <template #title>
+              <div class="chart-title">
+                <span class="indicator indicator-purple"></span>
+                运行模式分布
+              </div>
+            </template>
+            <div class="mode-dist-wrap">
+              <div v-if="modeDistribution" class="mode-items">
+                <div class="mode-item" v-for="(count, mode) in modeDistribution" :key="mode">
+                  <div class="mode-label">{{ modeLabels[mode as keyof typeof modeLabels] }}</div>
+                  <div class="mode-bar-wrap">
+                    <div class="mode-bar" :style="{ width: modeTotal > 0 ? (count / modeTotal * 100) + '%' : '0%' }"></div>
+                  </div>
+                  <div class="mode-count">{{ count }}</div>
+                </div>
+              </div>
+              <div v-else class="empty-placeholder">暂无审计事件</div>
+            </div>
+          </a-card>
+        </a-col>
+        <a-col :xs="24" :lg="12" class="dash-col-fill">
+          <a-card :bordered="false" class="chart-card">
+            <template #title>
+              <div class="chart-title">
+                <span class="indicator indicator-orange"></span>
+                工具调用统计
+              </div>
+            </template>
+            <div v-if="toolStats" class="tool-stats-grid">
+              <div class="tool-stat-item">
+                <div class="tool-stat-value tool-stat-value--ok">{{ toolStats.compliantCount }}</div>
+                <div class="tool-stat-label">合规调用</div>
+              </div>
+              <div class="tool-stat-item">
+                <div class="tool-stat-value tool-stat-value--block">{{ toolStats.blockedCount }}</div>
+                <div class="tool-stat-label">越权阻断</div>
+              </div>
+              <div class="tool-stat-item">
+                <div class="tool-stat-value tool-stat-value--warn">{{ toolStats.paramViolationCount }}</div>
+                <div class="tool-stat-label">参数越界</div>
+              </div>
+              <div class="tool-stat-item">
+                <div class="tool-stat-value">{{ toolStats.totalCount }}</div>
+                <div class="tool-stat-label">总调用数</div>
+              </div>
+            </div>
+            <div v-else class="empty-placeholder">暂无审计事件</div>
+          </a-card>
+        </a-col>
+      </a-row>
+
       <!-- 系统运行状态 + 近期事件 -->
       <a-row :gutter="24" class="section-row section-row--split" align="stretch">
         <a-col :xs="24" :lg="9" class="dash-col-fill">
@@ -144,7 +199,9 @@
                 近期风险事件
               </div>
             </template>
+            <div v-if="recentRows.length === 0" class="empty-placeholder">暂无审计事件</div>
             <a-table
+              v-else
               :dataSource="recentRows"
               :columns="recentColumns"
               row-key="id"
@@ -211,6 +268,27 @@ const stats = computed(() => overview.value?.stats ?? null);
 const recentRows = computed(() => events.value.slice(0, 14));
 const trendOption = computed(() => buildTrendOption(overview.value));
 const donutOption = computed(() => buildDonutOption(overview.value));
+
+const modeLabels: Record<string, string> = {
+  mvp_rule_based: '规则引擎',
+  real_llm_text: '真实LLM文本',
+  real_model_tool_call: '真实工具调用',
+  fallback: '降级模式',
+};
+
+const modeDistribution = computed(() => {
+  return stats.value?.llmModeDistribution;
+});
+
+const modeTotal = computed(() => {
+  const dist = modeDistribution.value;
+  if (!dist) return 0;
+  return dist.mvp_rule_based + dist.real_llm_text + dist.real_model_tool_call + dist.fallback;
+});
+
+const toolStats = computed(() => {
+  return stats.value?.toolCallStats;
+});
 
 const recentColumns = [
   { title: '时间', dataIndex: 'time', key: 'time', width: 170 },
@@ -298,9 +376,10 @@ function buildDonutOption(data: DashboardOverview | null) {
 
 function buildTrendOption(data: DashboardOverview | null) {
   const dates = data?.trend.dates ?? [];
-  const inj = data?.trend.injection ?? [];
-  const tool = data?.trend.toolAbuse ?? [];
-  const leak = data?.trend.dataLeak ?? [];
+  const inj = data?.trend.promptInjection ?? data?.trend.injection ?? [];
+  const rule = data?.trend.ruleOverride ?? [];
+  const tool = data?.trend.privilegeEscalation ?? data?.trend.toolAbuse ?? [];
+  const leak = data?.trend.sensitiveExfiltration ?? data?.trend.dataLeak ?? [];
   return {
     tooltip: {
       trigger: 'axis',
@@ -311,7 +390,7 @@ function buildTrendOption(data: DashboardOverview | null) {
       extraCssText: 'box-shadow: 0 4px 16px rgba(45, 90, 150, 0.12); border-radius: 8px;',
     },
     legend: {
-      data: ['提示注入', '工具越权', '敏感数据泄露'],
+      data: ['提示注入', '规则覆盖', '工具越权', '敏感数据泄露'],
       top: 4,
       right: 8,
       icon: 'circle',
@@ -357,6 +436,26 @@ function buildTrendOption(data: DashboardOverview | null) {
         },
       },
       {
+        name: '规则覆盖',
+        type: 'line',
+        smooth: 0.45,
+        lineStyle: { width: 2.5, color: '#6366F1' },
+        symbol: 'circle',
+        symbolSize: 6,
+        data: rule.length ? rule : [0],
+        itemStyle: { color: '#6366F1', borderColor: '#fff', borderWidth: 2 },
+        areaStyle: {
+          color: {
+            type: 'linear',
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(99, 102, 241, 0.24)' },
+              { offset: 1, color: 'rgba(99, 102, 241, 0)' },
+            ],
+          },
+        },
+      },
+      {
         name: '工具越权',
         type: 'line',
         smooth: 0.45,
@@ -380,18 +479,18 @@ function buildTrendOption(data: DashboardOverview | null) {
         name: '敏感数据泄露',
         type: 'line',
         smooth: 0.45,
-        lineStyle: { width: 2.5, color: '#10B981' },
+        lineStyle: { width: 2.5, color: '#F59E0B' },
         symbol: 'circle',
         symbolSize: 6,
         data: leak.length ? leak : [0],
-        itemStyle: { color: '#10B981', borderColor: '#fff', borderWidth: 2 },
+        itemStyle: { color: '#F59E0B', borderColor: '#fff', borderWidth: 2 },
         areaStyle: {
           color: {
             type: 'linear',
             x: 0, y: 0, x2: 0, y2: 1,
             colorStops: [
-              { offset: 0, color: 'rgba(16, 185, 129, 0.22)' },
-              { offset: 1, color: 'rgba(16, 185, 129, 0)' },
+              { offset: 0, color: 'rgba(245, 158, 11, 0.22)' },
+              { offset: 1, color: 'rgba(245, 158, 11, 0)' },
             ],
           },
         },
@@ -664,6 +763,8 @@ onMounted(async () => {
 .table-card :deep(.ant-table-wrapper) {
   flex: 1;
   min-height: 0;
+  max-height: 360px;
+  overflow-y: auto;
 }
 .table-card :deep(.ant-spin-nested-loading),
 .table-card :deep(.ant-spin-container) {
@@ -697,7 +798,7 @@ onMounted(async () => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   min-height: 0;
 }
 .status-item {
@@ -807,5 +908,90 @@ onMounted(async () => {
 .risk-pill--info {
   background: #E6F4FF;
   color: #1677FF;
+}
+
+/* 运行模式分布 */
+.mode-dist-wrap {
+  padding: 8px 0;
+}
+.mode-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.mode-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mode-label {
+  width: 96px;
+  font-size: 13px;
+  color: #475569;
+  flex-shrink: 0;
+}
+.mode-bar-wrap {
+  flex: 1;
+  height: 12px;
+  background: #E2E8F0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.mode-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #818CF8 0%, #6366F1 100%);
+  border-radius: 6px;
+  transition: width 0.3s ease;
+}
+.mode-count {
+  width: 32px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1E293B;
+}
+
+/* 工具调用统计 */
+.tool-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  padding: 8px 0;
+}
+.tool-stat-item {
+  text-align: center;
+  padding: 12px;
+  background: #F8FAFC;
+  border-radius: 10px;
+}
+.tool-stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: #0F172A;
+  line-height: 1.2;
+}
+.tool-stat-value--ok {
+  color: #10B981;
+}
+.tool-stat-value--block {
+  color: #EF4444;
+}
+.tool-stat-value--warn {
+  color: #F59E0B;
+}
+.tool-stat-label {
+  font-size: 12px;
+  color: #64748B;
+  margin-top: 4px;
+}
+
+/* 空数据占位 */
+.empty-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 160px;
+  color: #94A3B8;
+  font-size: 14px;
 }
 </style>

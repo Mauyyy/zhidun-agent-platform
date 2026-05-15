@@ -18,6 +18,9 @@ def get_dashboard_overview() -> dict[str, Any]:
         if event.get("decision") == "BLOCKED" and _risk_type(event) == "sensitive_data_exfiltration"
     )
 
+    llm_mode_distribution = _build_llm_mode_distribution(events)
+    tool_call_stats = _build_tool_call_stats(events)
+
     return {
         "stats": {
             "totalEvents": total_events,
@@ -25,6 +28,8 @@ def get_dashboard_overview() -> dict[str, Any]:
             "toolAuditCount": tool_audit_count,
             "leakBlockCount": leak_block_count,
             "weekChangePercent": _week_change_percent(events),
+            "llmModeDistribution": llm_mode_distribution,
+            "toolCallStats": tool_call_stats,
         },
         "trend": _build_trend(events),
         "riskTypeDistribution": risk_type_distribution,
@@ -53,28 +58,45 @@ def _build_trend(events: list[dict[str, Any]]) -> dict[str, list[Any]]:
     today = datetime.now(timezone.utc).date()
     dates = [(today - timedelta(days=offset)).isoformat() for offset in range(6, -1, -1)]
     counters = {
-        "injection": Counter(),
-        "toolAbuse": Counter(),
-        "dataLeak": Counter(),
+        "promptInjection": Counter(),
+        "ruleOverride": Counter(),
+        "privilegeEscalation": Counter(),
+        "sensitiveExfiltration": Counter(),
     }
 
     for event in events:
         day = _event_date(event)
         if not day or day not in dates:
             continue
-        risk_type = _risk_type(event)
-        if risk_type in {"prompt_injection", "rule_override"}:
-            counters["injection"][day] += 1
-        if event.get("functionCall") or event.get("function_call") or risk_type == "privilege_escalation":
-            counters["toolAbuse"][day] += 1
-        if risk_type == "sensitive_data_exfiltration":
-            counters["dataLeak"][day] += 1
+        
+        risk_types = _get_risk_types_from_event(event)
+        if risk_types:
+            for risk_type in risk_types:
+                if risk_type == "prompt_injection":
+                    counters["promptInjection"][day] += 1
+                elif risk_type == "rule_override":
+                    counters["ruleOverride"][day] += 1
+                elif risk_type == "privilege_escalation":
+                    counters["privilegeEscalation"][day] += 1
+                elif risk_type == "sensitive_data_exfiltration":
+                    counters["sensitiveExfiltration"][day] += 1
+        else:
+            risk_type = _risk_type(event)
+            if risk_type == "prompt_injection":
+                counters["promptInjection"][day] += 1
+            elif risk_type == "rule_override":
+                counters["ruleOverride"][day] += 1
+            elif risk_type == "privilege_escalation":
+                counters["privilegeEscalation"][day] += 1
+            elif risk_type == "sensitive_data_exfiltration":
+                counters["sensitiveExfiltration"][day] += 1
 
     return {
         "dates": dates,
-        "injection": [counters["injection"][day] for day in dates],
-        "toolAbuse": [counters["toolAbuse"][day] for day in dates],
-        "dataLeak": [counters["dataLeak"][day] for day in dates],
+        "promptInjection": [counters["promptInjection"][day] for day in dates],
+        "ruleOverride": [counters["ruleOverride"][day] for day in dates],
+        "privilegeEscalation": [counters["privilegeEscalation"][day] for day in dates],
+        "sensitiveExfiltration": [counters["sensitiveExfiltration"][day] for day in dates],
     }
 
 
@@ -90,8 +112,13 @@ def _build_risk_type_distribution(events: list[dict[str, Any]]) -> list[dict[str
     counters: Counter[str] = Counter()
 
     for event in events:
-        risk_type = _risk_type(event) or "unknown"
-        counters[risk_type] += 1
+        risk_types = _get_risk_types_from_event(event)
+        if risk_types:
+            for risk_type in risk_types:
+                counters[risk_type] += 1
+        else:
+            risk_type = _risk_type(event) or "unknown"
+            counters[risk_type] += 1
 
     ordered_types = [
         "prompt_injection",
@@ -116,6 +143,66 @@ def _build_risk_type_distribution(events: list[dict[str, Any]]) -> list[dict[str
         distribution.append({"type": "unknown", "label": labels["unknown"], "count": other_count})
 
     return distribution
+
+
+def _build_llm_mode_distribution(events: list[dict[str, Any]]) -> dict[str, int]:
+    modes = ["mvp_rule_based", "real_llm_text", "real_model_tool_call", "fallback"]
+    counters: Counter[str] = Counter()
+
+    for event in events:
+        llm_mode = str(event.get("llmMode") or event.get("llm_mode") or "").lower()
+        if llm_mode in modes:
+            counters[llm_mode] += 1
+        else:
+            counters["mvp_rule_based"] += 1
+
+    return {mode: counters[mode] for mode in modes}
+
+
+def _build_tool_call_stats(events: list[dict[str, Any]]) -> dict[str, int]:
+    compliant_count = 0
+    blocked_count = 0
+    param_violation_count = 0
+    total_count = 0
+
+    for event in events:
+        function_call = event.get("functionCall") or event.get("function_call")
+        if not function_call:
+            continue
+        
+        total_count += 1
+        rbac_result = event.get("rbacResult") or event.get("rbac_result") or {}
+        allowed = rbac_result.get("allowed", False)
+        decision = event.get("decision", "").upper()
+        
+        if allowed or decision == "ALLOWED":
+            compliant_count += 1
+        elif decision == "BLOCKED":
+            if rbac_result.get("allowed") is False:
+                blocked_count += 1
+            else:
+                param_violation_count += 1
+        else:
+            param_violation_count += 1
+
+    return {
+        "compliantCount": compliant_count,
+        "blockedCount": blocked_count,
+        "paramViolationCount": param_violation_count,
+        "totalCount": total_count,
+    }
+
+
+def _get_risk_types_from_event(event: dict[str, Any]) -> set[str]:
+    risk_types: set[str] = set()
+    rule_hits = event.get("ruleHits") or event.get("rule_hits") or []
+    
+    for hit in rule_hits:
+        risk_type = str(hit.get("riskType") or hit.get("risk_type") or "").lower()
+        if risk_type:
+            risk_types.add(risk_type)
+    
+    return risk_types
 
 
 def _week_change_percent(events: list[dict[str, Any]]) -> float:

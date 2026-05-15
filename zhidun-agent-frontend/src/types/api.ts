@@ -19,13 +19,28 @@ export interface DashboardStats {
   leakBlockCount: number;
   /** 风险事件总数周同比，百分比数字，如 12.5 */
   weekChangePercent?: number;
+  /** 运行模式分布 */
+  llmModeDistribution?: {
+    mvp_rule_based: number;
+    real_llm_text: number;
+    real_model_tool_call: number;
+    fallback: number;
+  };
+  /** 工具调用统计 */
+  toolCallStats?: {
+    compliantCount: number;
+    blockedCount: number;
+    paramViolationCount: number;
+    totalCount: number;
+  };
 }
 
 export interface DashboardTrend {
   dates: string[];
-  injection: number[];
-  toolAbuse: number[];
-  dataLeak: number[];
+  promptInjection: number[];
+  ruleOverride: number[];
+  privilegeEscalation: number[];
+  sensitiveExfiltration: number[];
 }
 
 export interface RiskTypeDistributionItem {
@@ -428,11 +443,11 @@ export interface DashboardRealtimeSnapshot {
 /** SSE/WS 推送消息体（用于统一刷新各页面） */
 export interface SecurityRealtimeEvent {
   type:
-    | 'event.created'
-    | 'event.updated'
-    | 'dashboard.updated'
-    | 'report.updated'
-    | 'audit.trace.appended';
+  | 'event.created'
+  | 'event.updated'
+  | 'dashboard.updated'
+  | 'report.updated'
+  | 'audit.trace.appended';
   timestamp: string;
   eventId?: string;
   jobId?: string;
